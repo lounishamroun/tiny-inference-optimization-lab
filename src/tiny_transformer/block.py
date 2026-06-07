@@ -15,7 +15,7 @@ INPUT_TEXT = data_loader.return_text("data/text.txt")
 
 # We'll use a pre-trained tokenizer since we'll use quite generic data
 tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
-tokenized_text=tokenizer.tokenize(INPUT_TEXT )
+tokenized_text=tokenizer.tokenize(INPUT_TEXT, return_tensors="pt")
 print(tokenized_text)
 
 

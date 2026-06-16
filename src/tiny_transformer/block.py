@@ -13,8 +13,9 @@ vocab_size =  8k–32k
 """
 
 from . import data_loader  
+import transformers
 from tokenizers import Tokenizer
-from transformers import AutoTokenizer,PreTrainedConfig,PythonBackend
+from transformers import AutoTokenizer,PreTrainedConfig,PythonBackend,AutoModel
 import torch 
 from torch import nn
 import json
@@ -23,6 +24,8 @@ import requests as r
 INPUT_TEXT = data_loader.return_text("data/text.txt")
 
 tokenizer_config=PreTrainedConfig(output_hidden_states=True,output_attentions=True)
+model=AutoModel.from_pretrained("openai-community/gpt2")
+
 
 def tokenize_text(INPUT_TEXT,tokenizer_config=None):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
@@ -31,14 +34,10 @@ def tokenize_text(INPUT_TEXT,tokenizer_config=None):
         config_model_type=tokenizer_config
         )
     token_ids=tokenizer(INPUT_TEXT, return_tensors="pt") #=> Tokenizes each word
-    return token_ids #=> return token's hidden state's IDs.
+    return len(token_ids['input_ids'].squeeze(0)),token_ids['input_ids'].squeeze(0) #=> return token's hidden state's IDs.
 
-def dict_map(token_id,dictionary="https://huggingface.co/gpt2/resolve/main/vocab.json"):
-    body=r.get(dictionary)
-    json_dictionary=body.json()
-    #TO DO : find key for value 'token_id"
 
-def ids_to_embeddings(word_ids):
+def ids_to_embeddings(word_ids,l_text):
     """
         Used to output a corresponding embedding given a token ID.
 
@@ -50,14 +49,31 @@ def ids_to_embeddings(word_ids):
             `?`: Returns the list of embeddings corresponding to each of our sequence of tokens.
     """
     embedding_list=[]
-    word_ids=word_ids['input_ids'].squeeze(0)
+    word_ids=word_ids
+    s=l_text
+    d_model=next(model.named_parameters("(wte)"))[1][0,:].shape[0]
+    
+    assert s==5, f"Wrong sequence dimension => {s}"
+    
+    embedding_matrix=next(model.named_parameters("(wte)"))[1]
     for id_ in word_ids: 
-        embedding=id_
+        token_id=id_.item() #type int
+        embedding=embedding_matrix[token_id,:]
         embedding_list.append(embedding)
-    return embedding
+    
+    embedding_matrix=torch.empty([s,d_model])
+    
+
+    for idx in range(len(embedding_list)):
+        embedding_matrix[idx,:]=embedding_list[idx]
+    
+    assert embedding_matrix.shape==torch.Size([5, 768]),f"Shape is {embedding_matrix.shape}"
+    
+    return embedding_matrix #return tensor containing the embeddings
 
 
-hidden_state_token_id=tokenize_text(INPUT_TEXT=INPUT_TEXT,tokenizer_config=tokenizer_config)
-ids_to_embeddings(hidden_state_token_id)
+l_text,hidden_state_token_id=tokenize_text(INPUT_TEXT=INPUT_TEXT,tokenizer_config=tokenizer_config)
+embedding_matrix=ids_to_embeddings(hidden_state_token_id,l_text)
+
 
     

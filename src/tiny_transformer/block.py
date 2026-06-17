@@ -47,19 +47,19 @@ def ids_to_embeddings(word_ids):
         Returns => shape:[s,d_model] :
             `?`: Returns the list of embeddings corresponding to each of our sequence of tokens.
     """
-
     word_ids=word_ids
     embedding_list=[]
-    for id_ in word_ids: 
-        token_id=torch.tensor(id_.item()) #type int
-        token_embedding_weights=next(model.named_parameters("wte"))[1]
-        token_embedding_obj=nn.Embedding.from_pretrained(token_embedding_weights)
-        positional_weights=next(model.named_parameters("wpe"))[1]
-        positional_embedding_obj=nn.Embedding.from_pretrained(positional_weights)   
-        final_embedding=token_embedding_obj(token_id)+positional_embedding_obj(token_id)
+    token_embedding_weights=next(model.named_parameters("wte"))[1]
+    token_embedding_obj=nn.Embedding.from_pretrained(token_embedding_weights)
+    positional_weights=next(model.named_parameters("wpe"))[1]
+    positional_embedding_obj=nn.Embedding.from_pretrained(positional_weights)  
+    
+    for idx,id_ in enumerate(word_ids): 
+        token_id=id_.item() #type int 
+        final_embedding=token_embedding_obj(torch.tensor(token_id))+positional_embedding_obj(torch.tensor([idx]))
         embedding_list.append(final_embedding)
     
-    embedding_tensor=torch.from_numpy(np.array(embedding_list)).unsqueeze(0) #=> torch.Size([1, 5, 768])
+    embedding_tensor=torch.from_numpy(np.array(embedding_list)).view(1,len(word_ids),token_embedding_weights.shape[1]) #=> torch.Size([1, 5, 768])
     
     return embedding_tensor #return tensor containing the embeddings
 

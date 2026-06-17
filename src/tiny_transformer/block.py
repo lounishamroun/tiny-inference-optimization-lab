@@ -1,15 +1,14 @@
 """ Glossary 
 Decoder (GPT STYLE)
     Shapes:
-        s=text sequence length
-        n_layers = 4 : How much neurons our model has.
+        n_layers = 4 : Number of transformer blocks.
         d_model = 256 : Correponds to the length of our embeddings.
         n_heads = 4
-        head_dim = 4
-        B = 1 : Batch sizee
+        head_dim = 64
+        B = 1 : Batch size
         T = 5 : Sequence length (in this case 5 words)
         context_length = 512
-vocab_size =  8k–32k
+        vocab_size = 50257
 """
 
 from . import data_loader  

@@ -17,6 +17,7 @@ for id_ in word_ids:
 
 However there's an already existing function which does that `torch.nn.Embedding`.
 
-### Mistake - Positional Embeddings 
+### Mistakes - Tokenization + Embedding
 
-Initially I only returned the token embeddings forgetting to take into account positional embeddings.
+- Initially I only returned the token embeddings forgetting to take into account positional embeddings.
+- I squeezed the batch dimension because it was equal to 1. But in practice we should keep it.

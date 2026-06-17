@@ -26,6 +26,8 @@ INPUT_TEXT = data_loader.return_text("data/text.txt")
 tokenizer_config=PreTrainedConfig(output_hidden_states=True,output_attentions=True)
 model=AutoModel.from_pretrained("openai-community/gpt2")
 
+print(model.wpe.weight)
+
 
 def tokenize_text(INPUT_TEXT,tokenizer_config=None):
 # We'll use a pre-trained tokenizer since we'll use quite generic data

@@ -21,3 +21,4 @@ However there's an already existing function which does that `torch.nn.Embedding
 
 - Initially I only returned the token embeddings forgetting to take into account positional embeddings.
 - I squeezed the batch dimension because it was equal to 1. But in practice we should keep it.
+- Inspecting objects instead of using the existing public API : `next(model.named_parameters("(wte)"))[1]`.

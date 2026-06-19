@@ -6,8 +6,8 @@ Decoder (GPT STYLE)
         n_heads = 12
         head_dim = 64
         B = 1 : Batch size
-        T = 5 : Sequence length (in this case 5 words)
-        context_length = 512
+        T = 5 : Number of tokens extracted from the sequence 
+        context_length = 1024
         vocab_size = 50257
 """
 

@@ -41,7 +41,7 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
         Used to output a corresponding embedding given a token ID.
 
         Args:
-            word_ids =>  dtype: torch.Tensor | shape:[B, T] :
+            token_ids =>  dtype: torch.Tensor | shape:[B, T] :
                 meaning: vocabulary indices
                 
         Returns:

@@ -16,9 +16,6 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 from boilerplates.similarity_test import compare_tensor_pair
 
-
-
-
 def tokenize_text(INPUT_TEXT):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
     tokenizer = AutoTokenizer.from_pretrained(
@@ -65,6 +62,10 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
     return x 
 
+def q_k_v_proj(embeddings):
+    pass
+    
+
 if __name__=="__main__":
     
     if torch.cuda.is_available():
@@ -73,25 +74,16 @@ if __name__=="__main__":
         DEVICE="cpu"
 
     INPUT_TEXT = data_loader.return_text("data/text.txt")
-
-
+    
     global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
     global_model=global_model.to(DEVICE)
 
-    token_ids_test=tokenize_text(INPUT_TEXT=INPUT_TEXT)
-    token_ids_test=token_ids_test.to(DEVICE)
+    ### Retreive embedding for the sequence | Output shape => [B,T,d_model]
+    token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
+    token_ids=token_ids.to(DEVICE) 
+    embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids_test,model=global_model)
     
-    
-    manual_embedding_for_seq=ids_to_gpt2_input_embeddings(token_ids=token_ids_test,model=global_model)
-    
-    global_model.eval()
-    outputs = global_model(
-    input_ids=token_ids_test,
-    output_hidden_states=True,
-    return_dict=True,
-    )
 
-    compare_tensor_pair(outputs.hidden_states[0],manual_embedding_for_seq)
 
     
 

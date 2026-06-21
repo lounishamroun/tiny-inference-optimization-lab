@@ -51,7 +51,7 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     #### Model Handle
     model.eval()
     B, T = token_ids.shape
-    token_embedding_module = model.get_input_embeddings()
+    token_embedding_module = model.pte
     position_embedding_module = model.wpe
     
     #### Token Embeddings ####

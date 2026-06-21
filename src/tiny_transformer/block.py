@@ -24,8 +24,8 @@ else:
 INPUT_TEXT = data_loader.return_text("data/text.txt")
 
 
-model=AutoModel.from_pretrained("openai-community/gpt2")
-model=model.to(DEVICE)
+global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
+global_model=global_model.to(DEVICE)
 
 def tokenize_text(INPUT_TEXT):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
@@ -36,7 +36,7 @@ def tokenize_text(INPUT_TEXT):
     token_ids=token_ids.to(DEVICE)
     return token_ids #shape [B,T]
 
-def ids_to_gpt2_input_embeddings(token_ids):
+def ids_to_gpt2_input_embeddings(token_ids,model):
     """
         Used to output a corresponding embedding given a token ID.
 
@@ -54,12 +54,12 @@ def ids_to_gpt2_input_embeddings(token_ids):
     
     #### Token Embeddings ####
     tok_embeddings=token_embedding_module(token_ids)
-    tok_embeddings=tok_embeddings.to(DEVICE)
     print(f'tok embedding shape {tok_embeddings.shape}')
     
     #### Positional Embeddings ####
-    pos_embeddings=position_embedding_module(torch.arange(start=0,end=T).to(DEVICE))
-    pos_embeddings=pos_embeddings.to(DEVICE)
+    seq_offset=torch.arange(start=0,end=T)
+    seq_offset=seq_offset.to(tok_embeddings.device)
+    pos_embeddings=position_embedding_module(seq_offset)
     print(f'pos_embeddings shape {pos_embeddings.shape}')
     
     d_model=tok_embeddings.shape[-1]
@@ -72,7 +72,8 @@ def ids_to_gpt2_input_embeddings(token_ids):
     return final_embedding 
 
 token_ids_test=tokenize_text(INPUT_TEXT=INPUT_TEXT)
-embedding_for_seq=ids_to_gpt2_input_embeddings(token_ids=token_ids_test)
+token_ids_test=token_ids_test.to(DEVICE)
+embedding_for_seq=ids_to_gpt2_input_embeddings(token_ids=token_ids_test,model=global_model)
 print(embedding_for_seq)
 
 

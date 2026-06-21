@@ -48,6 +48,8 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
             Type: `torch.Tensor` | shape:[B,T,d_model] :
                 List of embeddings corresponding to each of our sequence of tokens.
     """
+    #### Model Handle
+    model.eval()
     B, T = token_ids.shape
     token_embedding_module = model.get_input_embeddings()
     position_embedding_module = model.wpe
@@ -65,11 +67,11 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     d_model=tok_embeddings.shape[-1]
     print(f'd model {d_model}')
     
-    #### Final Embedding ####
-    final_embedding=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
-    print(f'final embedding {final_embedding.shape}')
-    assert final_embedding.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
-    return final_embedding 
+    #### Input Embedding ####
+    x=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
+    print(f'final embedding {x.shape}')
+    assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
+    return x 
 
 token_ids_test=tokenize_text(INPUT_TEXT=INPUT_TEXT)
 token_ids_test=token_ids_test.to(DEVICE)

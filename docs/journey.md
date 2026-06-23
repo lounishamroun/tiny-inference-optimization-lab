@@ -1,5 +1,8 @@
 # Building the transformer block
 
+`You can access the main checkpoints by looking for commits containing the keyword 'checkpoint'`
+
+
 The first step consists of building a transformer block using PyTorch and HuggingFace.
 
 ## Tokenization + Embedding

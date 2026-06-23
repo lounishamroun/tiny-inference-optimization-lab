@@ -1,47 +1,12 @@
-Ok so let's read the doc of nn.Embedding:
-- It's a lookup table which returns an embedding according to the provided index.
+So we have in input of the projection function: [B,T,d_model]
 
-Does our model has such object? : Yes:
+Where =>  Embeddings [B,T,d_model] => (IN) 'projection function' (OUT) => [B,T,d_model] , [B,T,d_model] , [B,T,d_model] '3 different matrices
+having the same shape as the input but with a linear layer '
 
-if we print(model) we retreive those parameters token + positional embeddings:
-
-GPT2Model(
-  (wte): Embedding(50257, 768)
-  (wpe): Embedding(1024, 768)
-...
-)
-
-We have to retreive the Embedding objects: returning => [B, T, D].
-
-embedding_object=next(model.named_parameters("Embedding"))[0] => This returns the Embedding.wte.weight type, not Embedding object.
-
-```python
-weights=next(model.named_parameters("wte"))[1]
-embedding = nn.Embedding.from_pretrained(weights)
-input = torch.tensor([0])
-print(embedding(input))
-```
-
-So I managed to access the Embedding object.
-
-Here's my second attempt with fixed batch size:
-
-    word_ids=word_ids
-    embedding_list=[]
-    for id_ in word_ids: 
-        token_id=torch.tensor(id_.item()) #type int
-        token_embedding_weights=next(model.named_parameters("wte"))[1]
-        token_embedding_obj=nn.Embedding.from_pretrained(token_embedding_weights)
-        positional_weights=next(model.named_parameters("wpe"))[1]
-        positional_embedding_obj=nn.Embedding.from_pretrained(positional_weights)   
-        final_embedding=token_embedding_obj(token_id)+positional_embedding_obj(token_id)
-        embedding_list.append(final_embedding)
-    
-    embedding_tensor=torch.from_numpy(np.array(embedding_list)).unsqueeze(0) #=> torch.Size([1, 5, 768])
-    
-    return embedding_tensor #return tensor containing the embeddings
+So each matrices will have one parameter per row and per d_model, 
+so the number of parameters should be the following for each matrices: (B * d_model * T) + T "the bias" 
 
 
-token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT)
-embedding_for_seq=ids_to_embeddings(token_ids)
-print(embedding_for_seq.shape)
+We should to a sanity check in order to check both the shape and the number of parameters and maybe also compare with the OG model.
+
+They seem to also be the presence of a residual connections (1 skipping projection and the other skipping MLPs)

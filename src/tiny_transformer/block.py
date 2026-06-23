@@ -13,6 +13,7 @@ Decoder (GPT STYLE)
 
 from . import data_loader
 import torch
+from torch import nn
 from transformers import AutoTokenizer, AutoModel
 from boilerplates.similarity_test import compare_tensor_pair
 
@@ -45,26 +46,34 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     
     #### Token Embeddings ####
     tok_embeddings=token_embedding_module(token_ids)  # Generates word embeddings for our sequence
-    print(f'tok embedding shape {tok_embeddings.shape}')
     
     #### Positional Embeddings ####
     seq_offset=torch.arange(start=0,end=T)
     seq_offset=seq_offset.to(tok_embeddings.device)
     pos_embeddings=position_embedding_module(seq_offset) # Generates positional embeddings for our sequence
-    print(f'pos_embeddings shape {pos_embeddings.shape}')
     
     d_model=tok_embeddings.shape[-1]
-    print(f'd model {d_model}')
     
     #### Input Embedding ####
     x=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
-    print(f'x shape {x.shape}')
     assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
     return x 
 
 def q_k_v_proj(embeddings):
-    pass
+    d_model=embeddings.shape[-1]
     
+    Qw=nn.Linear(in_features=d_model,out_features=d_model)
+    Kw=nn.Linear(in_features=d_model,out_features=d_model)
+    Vw=nn.Linear(in_features=d_model,out_features=d_model)
+    
+    
+    Qw,Kw,Vw=Qw.to(embeddings.device),Kw.to(embeddings.device),Vw.to(embeddings.device)
+    
+    Q=Qw(embeddings)
+    K=Kw(embeddings)
+    V=Vw(embeddings)
+    
+    return Q,K,V
 
 if __name__=="__main__":
     
@@ -74,14 +83,20 @@ if __name__=="__main__":
         DEVICE="cpu"
 
     INPUT_TEXT = data_loader.return_text("data/text.txt")
-    
     global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
     global_model=global_model.to(DEVICE)
-
     ### Retreive embedding for the sequence | Output shape => [B,T,d_model]
     token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
     token_ids=token_ids.to(DEVICE) 
-    embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids_test,model=global_model)
+    embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
+    
+    ### Perform Q,K,V projection
+    x_proj=q_k_v_proj(embeddings=embeddings)
+    
+    for x in x_proj:
+        print(f"Projection type: {type(x)} | Shape proj: {x.shape if isinstance(x, torch.Tensor) else 'not a tensor'}")
+
+    
     
 
 

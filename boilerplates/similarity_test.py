@@ -8,8 +8,3 @@ def compare_tensor_pair(t1,t2,allclose=True):
     if allclose == True:
         assert torch.allclose(t1,t2), f"Important value discrepancy between both tensors | Max discrepancy: {abs(torch.max(t1)-torch.max(t2))} | Min discrepancy:{abs(torch.min(t1)-torch.min(t2))} | Avg discrepancy: {abs(torch.mean(t1)-torch.mean(t2))}" 
 
-
-t1=torch.randn(size=[1,8,9])
-t2=torch.randn(size=[1,8,9])
-
-compare_tensor_pair(t1,t2)

@@ -59,21 +59,21 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
     return x 
 
-def q_k_v_proj(embeddings):
-    d_model=embeddings.shape[-1]
-    
-    Qw=nn.Linear(in_features=d_model,out_features=d_model)
-    Kw=nn.Linear(in_features=d_model,out_features=d_model)
-    Vw=nn.Linear(in_features=d_model,out_features=d_model)
-    
-    
-    Qw,Kw,Vw=Qw.to(embeddings.device),Kw.to(embeddings.device),Vw.to(embeddings.device)
-    
-    Q=Qw(embeddings)
-    K=Kw(embeddings)
-    V=Vw(embeddings)
-    
-    return Q,K,V
+class q_k_v_proj(nn.Module):
+    def __init__(self,d_model,device="cuda:0"):
+        super().__init__()
+        self.d_model=d_model
+        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
+        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
+        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
+        
+    def forward(self,x:torch.tensor):
+        Q=self.Qw(x)
+        K=self.Kw(x)
+        V=self.Vw(x)
+        
+        return Q,K,V
+
 
 if __name__=="__main__":
     
@@ -85,13 +85,20 @@ if __name__=="__main__":
     INPUT_TEXT = data_loader.return_text("data/text.txt")
     global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
     global_model=global_model.to(DEVICE)
-    ### Retreive embedding for the sequence | Output shape => [B,T,d_model]
+    
+    """ Retreive embedding for the sequence | Output shape => [B,T,d_model] | Device = cuda:0 """
     token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
     token_ids=token_ids.to(DEVICE) 
     embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
+    d_model=embeddings.shape[2]
+
+    """ Perform Q,K,V projection """
+    proj_obj=q_k_v_proj(d_model)
+    x_proj=proj_obj(x=embeddings) # Output shape => [B,T,d_model] | n_heads = 1
     
-    ### Perform Q,K,V projection
-    x_proj=q_k_v_proj(embeddings=embeddings)
+    """ Multi-Head """
+    # [B,T,d_model] => [B,T,d_model] 
+    
     
     for x in x_proj:
         print(f"Projection type: {type(x)} | Shape proj: {x.shape if isinstance(x, torch.Tensor) else 'not a tensor'}")

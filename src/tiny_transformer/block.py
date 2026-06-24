@@ -82,7 +82,15 @@ def multi_head_proj(embedding_projection,n_heads=12,head_dim=64):
     B,T=embedding_projection.shape[0],embedding_projection.shape[1]
     multi_head_proj=torch.reshape(embedding_projection,(B,T,n_heads,head_dim))
     return multi_head_proj
-    
+
+""" 
+Takes 3 inputs (each corresponding to one Q,K,V head) 
+of shape [B, T, (h), d_head] "(h) being the head index"
+and output a computed attention for head (h).
+"""
+def head_wise_attention_compute(head_q,head_k,head_v):
+    attention_scores=nn.softmax((head_q@head_k.T)/head_q.shape[-1])
+    return attention_scores
         
 if __name__=="__main__":
     
@@ -101,17 +109,27 @@ if __name__=="__main__":
     embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
     d_model=embeddings.shape[2]
 
-    """ Perform Q,K,V projection """
+    """ Perform Q,K,V projection and output each Q,K,V matrices """
     proj_obj=q_k_v_proj(d_model)
     x_proj=proj_obj(x=embeddings) # Output a tuple containing Q,K,V => tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
     
-    head_per_proj=[]
+    """ Turn it into a multi-head paradigm"""
+    proj_reshape=[]
     for proj in x_proj:
         multi_head_projection=multi_head_proj(proj)
-        head_per_proj.append(multi_head_projection) 
+        proj_reshape.append(multi_head_projection) 
+
+    Q_reshape,K_reshape,V_reshape=proj_reshape    
+    Q_heads,K_heads,V_heads=Q_reshape[0][1],K_reshape[0][1],V_reshape[0][1]
     
-    for item in head_per_proj:
-        print(item.shape)
+    
+    """# TO DO , here's how you access a head for one specific projection 
+    we should find a way to call the "head_wise_attention_compute" function
+    for head,heads in enumerate(Q_heads):
+        Q_head_h=heads[head]
+    """
+    
+    #head_wise_attention_compute(head)
     
     
     

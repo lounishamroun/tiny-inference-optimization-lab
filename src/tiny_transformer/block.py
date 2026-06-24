@@ -73,8 +73,17 @@ class q_k_v_proj(nn.Module):
         V=self.Vw(x)
         
         return Q,K,V
-
-
+    
+""" Takes one embedding projection to turn it into a multi-head tensor
+    input: [B,T,d_model]
+    output: [B,T,n_heads,head_dim]
+"""
+def multi_head_proj(embedding_projection,n_heads=12,head_dim=64):
+    B,T=embedding_projection.shape[0],embedding_projection.shape[1]
+    multi_head_proj=torch.reshape(embedding_projection,(B,T,n_heads,head_dim))
+    return multi_head_proj
+    
+        
 if __name__=="__main__":
     
     if torch.cuda.is_available():
@@ -94,15 +103,16 @@ if __name__=="__main__":
 
     """ Perform Q,K,V projection """
     proj_obj=q_k_v_proj(d_model)
-    x_proj=proj_obj(x=embeddings) # Output shape => [B,T,d_model] | n_heads = 1
+    x_proj=proj_obj(x=embeddings) # Output a tuple containing Q,K,V => tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
     
-    """ Multi-Head """
-    # [B,T,d_model] => [B,T,d_model] 
+    head_per_proj=[]
+    for proj in x_proj:
+        multi_head_projection=multi_head_proj(proj)
+        head_per_proj.append(multi_head_projection) 
     
+    for item in head_per_proj:
+        print(item.shape)
     
-    for x in x_proj:
-        print(f"Projection type: {type(x)} | Shape proj: {x.shape if isinstance(x, torch.Tensor) else 'not a tensor'}")
-
     
     
 

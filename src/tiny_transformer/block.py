@@ -112,25 +112,20 @@ if __name__=="__main__":
 
     """ Perform Q,K,V projection and output each Q,K,V matrices """
     proj_obj=q_k_v_proj(d_model)
-    x_proj=proj_obj(x=embeddings) # Output a tuple containing Q,K,V => tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
+    x_proj=proj_obj(x=embeddings) 
+    # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
     
     """ Turn it into a multi-head paradigm"""
     proj_reshape=[]
     for proj in x_proj:
         multi_head_projection=multi_head_proj(proj)
         proj_reshape.append(multi_head_projection) 
+    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
 
+    for element in proj_reshape:
+        print(element.shape)
     Q_reshape,K_reshape,V_reshape=proj_reshape    
-    Q_heads,K_heads,V_heads=Q_reshape[0][1],K_reshape[0][1],V_reshape[0][1]
-    
-    
-    """# TO DO , here's how you access a head for one specific projection 
-    we should find a way to call the "head_wise_attention_compute" function
-    for head,heads in enumerate(Q_heads):
-        Q_head_h=heads[head]
-    """
-    
-    #head_wise_attention_compute(head)
+
     
     
     

@@ -17,13 +17,21 @@ from torch import nn
 from transformers import AutoTokenizer, AutoModel
 from boilerplates.similarity_test import compare_tensor_pair
 
+_N_HEADS=12
+_HEAD_DIM=64
+
 def tokenize_text(INPUT_TEXT):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
+    global _B
+    global _T
+    
     tokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path="openai-community/gpt2",
         )
     token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
     token_ids=token_ids.to(DEVICE)
+    _B=token_ids.shape[0]
+    _T=token_ids.shape[1]
     return token_ids #shape [B,T]
 
 def ids_to_gpt2_input_embeddings(token_ids,model):
@@ -78,7 +86,7 @@ class q_k_v_proj(nn.Module):
     input: [B,T,d_model]
     output: [B,T,n_heads,head_dim]
 """
-def multi_head_proj(embedding_projection,n_heads=12,head_dim=64):
+def multi_head_proj(embedding_projection,n_heads=_N_HEADS,head_dim=_HEAD_DIM):
     B,T,d_model=embedding_projection.shape[0],embedding_projection.shape[1],embedding_projection.shape[2]
     assert n_heads*head_dim==d_model,f"Can't reshape model dimension, model dimension = {n_heads*head_dim} => n_head x head_dim must be equal to d_model"
     multi_head_proj=torch.reshape(embedding_projection,(B,T,n_heads,head_dim))
@@ -120,7 +128,10 @@ if __name__=="__main__":
     for proj in x_proj:
         multi_head_projection=multi_head_proj(proj)
         proj_reshape.append(multi_head_projection) 
+    assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
     # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
+
+
 
     for element in proj_reshape:
         print(element.shape)

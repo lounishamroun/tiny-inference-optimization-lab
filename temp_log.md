@@ -1,12 +1,11 @@
-So we have in input of the projection function: [B,T,d_model]
 
-Where =>  Embeddings [B,T,d_model] => (IN) 'projection function' (OUT) => [B,T,d_model] , [B,T,d_model] , [B,T,d_model] '3 different matrices
-having the same shape as the input but with a linear layer '
+Ok so I added an assert, even though I'm not sure of its usefulness since the reshape will raise an error
+if the dimension doesn't match:
 
-So each matrices will have one parameter per row and per d_model, 
-so the number of parameters should be the following for each matrices: (B * d_model * T) + T "the bias" 
-
-
-We should to a sanity check in order to check both the shape and the number of parameters and maybe also compare with the OG model.
-
-They seem to also be the presence of a residual connections (1 skipping projection and the other skipping MLPs)
+```python
+def multi_head_proj(embedding_projection,n_heads=12,head_dim=64):
+    B,T,d_model=embedding_projection.shape[0],embedding_projection.shape[1],embedding_projection.shape[2]
+    assert multi_head_proj.shape[-2]*multi_head_proj.shape[-1]==d_model,f"Can't reshape model dimension, model dimension = {d_model} | n_head x head_dim = {multi_head_proj.shape[-2]*multi_head_proj.shape[-1]} => n_head x head_dim must be equal to d_model"
+    multi_head_proj=torch.reshape(embedding_projection,(B,T,n_heads,head_dim))
+    return multi_head_proj
+```

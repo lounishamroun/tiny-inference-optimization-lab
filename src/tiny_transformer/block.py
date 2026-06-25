@@ -92,15 +92,32 @@ def multi_head_proj(embedding_projection,n_heads=_N_HEADS,head_dim=_HEAD_DIM):
     multi_head_proj=torch.reshape(embedding_projection,(B,T,n_heads,head_dim))
     return multi_head_proj
 
+def multi_head_qkv_proj(proj):
+    proj_reshape=[]
+    for proj in x_proj:
+        multi_head_projection=multi_head_proj(proj)
+        proj_reshape.append(multi_head_projection) 
+    assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
+    assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
+    assert proj_reshape[0].shape[0]==_B and proj_reshape[0].shape[1]==_T and proj_reshape[0].shape[2]==_N_HEADS and proj_reshape[0].shape[3]== _HEAD_DIM
+    return proj_reshape
+
 """ 
 Takes 3 inputs (each corresponding to one Q,K,V head) 
 of shape [B, T, (h), d_head] "(h) being the head index"
 and output a computed attention for head (h).
 """
-def head_wise_attention_compute(head_q,head_k,head_v):
-    attention_scores=nn.softmax((head_q@head_k.T)/head_q.shape[-1])
-    return attention_scores
-        
+def head_wise_attention_compute(qkv_proj):
+    Q=qkv_proj[0]
+    K=qkv_proj[1]
+    V=qkv_proj[2]
+    
+    for h in range(qkv_proj[0].shape[2]+1):
+        attention_matrix=Q[:,:,h,:]@K[:,:,h,:]
+        print(attention_matrix.shape)
+    
+    
+    
 if __name__=="__main__":
     
     if torch.cuda.is_available():
@@ -123,20 +140,13 @@ if __name__=="__main__":
     x_proj=proj_obj(x=embeddings) 
     # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
     
-    """ Turn it into a multi-head paradigm"""
-    proj_reshape=[]
-    for proj in x_proj:
-        multi_head_projection=multi_head_proj(proj)
-        proj_reshape.append(multi_head_projection) 
-    assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
+    """ Turns Q,K,V matrices into a multi-head paradigm"""
+    qkv_proj=multi_head_qkv_proj(x_proj)
     # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
-
-
-
-    for element in proj_reshape:
-        print(element.shape)
    
-    Q_reshape,K_reshape,V_reshape=proj_reshape    
+    qkv_attention=head_wise_attention_compute(qkv_proj) #TO DO
+   # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
+   
 
     
     

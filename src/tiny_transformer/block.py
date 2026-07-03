@@ -16,6 +16,7 @@ import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModel
 from boilerplates.similarity_test import compare_tensor_pair
+import math
 
 _N_HEADS=12
 _HEAD_DIM=64
@@ -112,10 +113,25 @@ def head_wise_attention_compute(qkv_proj):
     K=qkv_proj[1]
     V=qkv_proj[2]
     
-    for h in range(qkv_proj[0].shape[2]+1):
-        attention_matrix=Q[:,:,h,:]@K[:,:,h,:]
-        print(attention_matrix.shape)
+    d_model=Q.shape[-1]*Q.shape[-2]
     
+    # [1, 5, 12, 64] 
+    # [64,12....]  
+    K=torch.movedim(K,(2,3),(3,2))
+    
+    print(f'Q shape : {Q.shape} | vs K : {K.shape}')
+        
+    Q_K_dot_product=Q@K
+    print(Q_K_dot_product.shape)
+    
+
+    scaled_product=Q_K_dot_product/math.sqrt(d_model)    
+    #masking= #TO DO     
+    softmax_product= #TO DO 
+
+    
+    
+
     
     
 if __name__=="__main__":
@@ -138,14 +154,15 @@ if __name__=="__main__":
     """ Perform Q,K,V projection and output each Q,K,V matrices """
     proj_obj=q_k_v_proj(d_model)
     x_proj=proj_obj(x=embeddings) 
-    # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | n_heads = 1
+    # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head
     
     """ Turns Q,K,V matrices into a multi-head paradigm"""
+    # IN: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head  
     qkv_proj=multi_head_qkv_proj(x_proj)
-    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
+    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model]) | n_heads 
    
     qkv_attention=head_wise_attention_compute(qkv_proj) #TO DO
-   # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
+    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
    
 
     

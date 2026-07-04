@@ -113,26 +113,33 @@ def head_wise_attention_compute(qkv_proj):
     K=qkv_proj[1]
     V=qkv_proj[2]
     
+    batch_size=Q.shape[0]
     d_model=Q.shape[-1]*Q.shape[-2]
+    n_heads=Q.shape[-2]
     
-    # [1, 5, 12, 64] 
-    # [64,12....]  
-    K=torch.movedim(K,(2,3),(3,2))
+    print(f'K: {K.shape} vs Q: {Q.shape}')
     
-    print(f'Q shape : {Q.shape} | vs K : {K.shape}')
-        
-    Q_K_dot_product=Q@K
-    print(Q_K_dot_product.shape)
+    # K: torch.Size([1, 5, 12, 64]) vs Q: torch.Size([1, 5, 12, 64])
+    
+    #[1, 5, 64, 12]
+    
+    Q_K=torch.zeros((1, 12, 5, 5))
+    m = nn.Softmax(dim=2)
+    
+    for i in range(n_heads):
+        Q_tmp=Q[:,:,i,:]
+        K_tmp=K[:,:,i,:]
+        K_tmp=torch.movedim(K_tmp,(1,2),(2,1))
+        Q_K[:,i,:,:]=Q_tmp@K_tmp #shape=[1, 5, 5]
+        Q_K[:,i,:,:]=torch.div(Q_K[:,i,:,:],math.sqrt(d_model))
+        Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
+        Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
+        assert Q_K[:,i,:,:].max() < 1.0, f'Max is : {Q_K[:,i,:,:].min()}'
+        assert Q_K[:,i,:,:].min() > 0.0, f'Min is : {Q_K[:,i,:,:].min()}'
+
+    return Q_K
     
 
-    scaled_product=Q_K_dot_product/math.sqrt(d_model)    
-    #masking= #TO DO     
-    softmax_product= #TO DO 
-
-    
-    
-
-    
     
 if __name__=="__main__":
     

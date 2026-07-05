@@ -116,6 +116,7 @@ def head_wise_attention_compute(qkv_proj):
     batch_size=Q.shape[0]
     d_model=Q.shape[-1]*Q.shape[-2]
     n_heads=Q.shape[-2]
+    head_dim=Q.shape[-1]
     
     print(f'K: {K.shape} vs Q: {Q.shape}')
     
@@ -131,7 +132,7 @@ def head_wise_attention_compute(qkv_proj):
         K_tmp=K[:,:,i,:]
         K_tmp=torch.movedim(K_tmp,(1,2),(2,1))
         Q_K[:,i,:,:]=Q_tmp@K_tmp #shape=[1, 5, 5]
-        Q_K[:,i,:,:]=torch.div(Q_K[:,i,:,:],math.sqrt(d_model))
+        Q_K[:,i,:,:]=torch.div(Q_K[:,i,:,:],math.sqrt(head_dim))
         Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
         mask=(Q_K[:,i,:,:] == 0)
         Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))

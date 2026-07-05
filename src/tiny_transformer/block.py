@@ -125,7 +125,7 @@ def head_wise_attention_compute(qkv_proj):
     #[1, 5, 64, 12]
     
     Q_K=torch.zeros((1, 12, 5, 5))
-    m = nn.Softmax(dim=2)
+    m = nn.Softmax(dim=-1)
     
     for i in range(n_heads):
         Q_tmp=Q[:,:,i,:]

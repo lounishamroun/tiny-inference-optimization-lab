@@ -114,11 +114,12 @@ def head_wise_attention_compute(qkv_proj):
     V=qkv_proj[2]
     
     batch_size=Q.shape[0]
+    seq_length=Q.shape[1]
     d_model=Q.shape[-1]*Q.shape[-2]
     n_heads=Q.shape[-2]
     head_dim=Q.shape[-1]
     
-    Q_K=torch.zeros((1, 12, 5, 5)).to(DEVICE)
+    Q_K=torch.zeros((batch_size, n_heads, seq_length, seq_length)).to(DEVICE)
     m = nn.Softmax(dim=-1)
     
     for i in range(n_heads):
@@ -138,7 +139,7 @@ def head_wise_attention_compute(qkv_proj):
     print(f'QK shape: {Q_K.shape} x V shape {reshaped_V.shape}')
     
     # QK [1, 12, 5, 5] x V [12, 64, 1, 5]
-    # QK [5, 5, 12,1] x V [12, 64, 5, 1]
+    # QK [1, 12] x V []
     
     attention_output=Q_K@reshaped_V
     print(f"attention out shape : {attention_output}")

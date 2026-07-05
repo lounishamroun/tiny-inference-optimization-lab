@@ -42,3 +42,7 @@ The embedding stage is now understood and verified.
 - I squeezed the batch dimension because it was equal to 1. But in practice we should keep it.
 - Inspecting objects instead of using the existing public API : `next(model.named_parameters("(wte)"))[1]`.
 - Asserting types instead of using `isinstance()`, which is more flexible (e.g., when comparing torch.Tensor subclasses). 
+
+### Mistakes - Attention
+
+- I used `torch.tril` to create the causal mask. However, this function produces `0` values in the masked positions, whereas they should be `-inf` before the softmax operation, because softmax may still treat `0` as a valid score.

@@ -133,9 +133,10 @@ def head_wise_attention_compute(qkv_proj):
         Q_K[:,i,:,:]=Q_tmp@K_tmp #shape=[1, 5, 5]
         Q_K[:,i,:,:]=torch.div(Q_K[:,i,:,:],math.sqrt(d_model))
         Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
+        mask=(Q_K[:,i,:,:] == 0)
+        Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))
         Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
-        assert Q_K[:,i,:,:].max() < 1.0, f'Max is : {Q_K[:,i,:,:].min()}'
-        assert Q_K[:,i,:,:].min() > 0.0, f'Min is : {Q_K[:,i,:,:].min()}'
+
 
     return Q_K
     

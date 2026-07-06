@@ -1,17 +1,23 @@
-## Q,K,V
+Ok so to solve the null value issue, I did this:
 
-So we should put a linear layer to our embeddings (weights and bias for each embedding row)
-[B,T,d_model] => [..T,d_model] put weights on it. 
+Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
+mask=(Q_K[:,i,:,:] == 0)
+Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))
+Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
 
-We gonna ignore the batch size at the moment
+My only thought is, what if there's null elements which aren't in the diagonal but actual scores?
 
-In entry we have embeddings => [T,d_model],
+Regarding shapes we have the Following tensors : 
 
-So each Q, K, V matrices will have the following shape:
+QV: [1, 12, 5, 5] | V:[1, 5, 12, 64] 
 
-[T,d_model] while having (d_model*T)+T parameters so one parameter per embedding dimension + bias for each token
+Let's remove the batch size for simplicity
 
+QV: [12, 5, 5]  | V: [5, 12, 64] 
 
+QV: [12, 5,.]  | V: [., 12, 64]
+
+Output: [5, 12, 64]
 
 
 

@@ -95,8 +95,8 @@ def multi_head_proj(embedding_projection,n_heads=_N_HEADS,head_dim=_HEAD_DIM):
 
 def multi_head_qkv_proj(proj):
     proj_reshape=[]
-    for proj in x_proj:
-        multi_head_projection=multi_head_proj(proj)
+    for x_proj in proj:
+        multi_head_projection=multi_head_proj(x_proj)
         proj_reshape.append(multi_head_projection) 
     assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
     assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
@@ -133,6 +133,7 @@ def head_wise_attention_compute(qkv_proj):
         Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))
         Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
 
+    print(f"OG v shape: {V.shape} | OG QK shape: {Q_K.shape}  ")
     reshaped_V=torch.movedim(V,(2,3),(3,2))
     Q_K=Q_K.T
     

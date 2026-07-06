@@ -23,17 +23,12 @@ _HEAD_DIM=64
 
 def tokenize_text(INPUT_TEXT):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
-    global _B
-    global _T
-    
     tokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path="openai-community/gpt2",
         )
     token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
     token_ids=token_ids.to(DEVICE)
-    _B=token_ids.shape[0]
-    _T=token_ids.shape[1]
-    return token_ids #shape [B,T]
+    return token_ids #returns token ids + shape(batch_size,sequence_length)
 
 def ids_to_gpt2_input_embeddings(token_ids,model):
     """
@@ -100,7 +95,6 @@ def multi_head_qkv_proj(proj):
         proj_reshape.append(multi_head_projection) 
     assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
     assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
-    assert proj_reshape[0].shape[0]==_B and proj_reshape[0].shape[1]==_T and proj_reshape[0].shape[2]==_N_HEADS and proj_reshape[0].shape[3]== _HEAD_DIM
     return proj_reshape
 
 """ 
@@ -132,7 +126,7 @@ def head_wise_attention_compute(qkv_proj):
     Q_K=torch.tril(Q_K, diagonal=0)
     mask=(Q_K == 0)
     Q_K=Q_K.masked_fill_(mask, float("-inf"))
-    Q_K=torch.div(Q_K,sqrt(head_dim))
+    Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    
     print(f'V shape:{V.shape} ')
     V=torch.movedim(V,(1,2),(2,1))

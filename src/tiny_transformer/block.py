@@ -113,8 +113,6 @@ def head_wise_attention_compute(qkv_proj):
     K=qkv_proj[1]
     V=qkv_proj[2]
     
-    print(f'Q shape : {Q.shape} | K shape : {K.shape}')
-    
     batch_size=Q.shape[0]
     seq_length=Q.shape[1]
     d_model=Q.shape[-1]*Q.shape[-2]
@@ -134,32 +132,18 @@ def head_wise_attention_compute(qkv_proj):
     mask=(Q_K[-1] == 0)
     Q_K=Q_K.masked_fill_(mask, float("-inf"))
     Q_K=torch.div(Q_K,head_dim)
-    Q_K=m(Q_K)
+    Q_K=m(Q_K)    
+    attention_matrix=Q_K@V
     
+    assert attention_matrix.shape[0] == batch_size, f'Batch size dimension should be : {batch_size} but got :{Q_K.shape[0]}'
+    assert attention_matrix.shape[1] == seq_length, f'Sequence dimension should be : {seq_length} but got :{Q_K.shape[1]}'
+    assert attention_matrix.shape[2] == n_heads, f'N head dimension should be : {head_dim} but got :{Q_K.shape[2]}'
+    assert attention_matrix.shape[3] == head_dim, f'Head dimension should be : {head_dim} but got :{Q_K.shape[3]}'
     
-    
-    """
-    for i in range(n_heads):
-        Q_tmp=Q[:,:,i,:]
-        K_tmp=K[:,:,i,:]
-        K_tmp=torch.movedim(K_tmp,(1,2),(2,1))
-        Q_K[:,i,:,:]=Q_tmp@K_tmp #shape=[1, 5, 5]
-        Q_K[:,i,:,:]=torch.div(Q_K[:,i,:,:],math.sqrt(head_dim))
-        Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
-        mask=(Q_K[:,i,:,:] == 0)
-        Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))
-        Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
 
-    print(f"OG v shape: {V.shape} | OG QK shape: {Q_K.shape}  ")
-    reshaped_V=torch.movedim(V,(2,3),(3,2))
-    Q_K=Q_K.T
-
-    
-    attention_output=Q_K@reshaped_V
-    print(f"attention out shape : {attention_output}")
-    return attention_output
-    """
-    
+def LayerNorm(x,residual_x):
+    pass
+    #TO DO : LayerNorm(x + Sublayer(x))
 
     
 if __name__=="__main__":

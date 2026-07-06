@@ -53,6 +53,6 @@ The embedding stage is now understood and verified.
 for i in range(n_heads):
         Q_tmp=Q[:,:,i,:]
         K_tmp=K[:,:,i,:]
-        # all following ops were occuring the loop
+        # all following ops were occuring inside the loop
         ...
 ```

@@ -113,6 +113,8 @@ def head_wise_attention_compute(qkv_proj):
     K=qkv_proj[1]
     V=qkv_proj[2]
     
+    print(f'Q shape : {Q.shape} | K shape : {K.shape}')
+    
     batch_size=Q.shape[0]
     seq_length=Q.shape[1]
     d_model=Q.shape[-1]*Q.shape[-2]
@@ -122,6 +124,21 @@ def head_wise_attention_compute(qkv_proj):
     Q_K=torch.zeros((batch_size, n_heads, seq_length, seq_length)).to(DEVICE)
     m = nn.Softmax(dim=-1)
     
+    Q_K=Q@K.transpose(-2, -1) #shape => [batch_size,seq_length,n_heads,n_heads]
+    assert Q_K.shape[0] == batch_size
+    assert Q_K.shape[1] == seq_length
+    assert Q_K.shape[2] == n_heads
+    assert Q_K.shape[3] == n_heads
+    
+    Q_K[-1]=torch.tril(Q_K[-1], diagonal=0)
+    mask=(Q_K[-1] == 0)
+    Q_K=Q_K.masked_fill_(mask, float("-inf"))
+    Q_K=torch.div(Q_K,head_dim)
+    Q_K=m(Q_K)
+    
+    
+    
+    """
     for i in range(n_heads):
         Q_tmp=Q[:,:,i,:]
         K_tmp=K[:,:,i,:]
@@ -136,15 +153,12 @@ def head_wise_attention_compute(qkv_proj):
     print(f"OG v shape: {V.shape} | OG QK shape: {Q_K.shape}  ")
     reshaped_V=torch.movedim(V,(2,3),(3,2))
     Q_K=Q_K.T
-    
-    print(f'QK shape: {Q_K.shape} x V shape {reshaped_V.shape}')
-    
-    # QK [1, 12, 5, 5] x V [12, 64, 1, 5]
-    # QK [1, 12] x V []
+
     
     attention_output=Q_K@reshaped_V
     print(f"attention out shape : {attention_output}")
     return attention_output
+    """
     
 
     

@@ -1,27 +1,32 @@
-Ok so to solve the null value issue, I did this:
-
-Q_K[:,i,:,:]=torch.tril(Q_K[:,i,:,:], diagonal=0)
-mask=(Q_K[:,i,:,:] == 0)
-Q_K[:,i,:,:]=Q_K[:,i,:,:].masked_fill_(mask, float("-inf"))
-Q_K[:,i,:,:]=m(Q_K[:,i,:,:])
-
-My only thought is, what if there's null elements which aren't in the diagonal but actual scores?
-
-Regarding shapes we have the Following tensors : 
-
-QV: [1, 12, 5, 5] | V:[1, 5, 12, 64] 
-
-Let's remove the batch size for simplicity
-
-QV: [12, 5, 5]  | V: [5, 12, 64] 
-
-QV: [12, 5,.]  | V: [., 12, 64]
-
-Output: [5, 12, 64]
+Here's my thought path, and how I reasoned about the problem, again give me constructive feedback:
 
 
+So let's get back to this step, the current dimension are the following:
 
+Q : torch.Size([1, 5, 12, 64]) * K : torch.Size([1, 5, 12, 64]) 
 
+We want the following output dimension : [1,12,5,5]
+
+So now I get it, basically we want to flattent the head dimension (64
+) because we want to "summarize" those 64 per token dimension into one similarity indicator.
+
+So following your technique, we need to swap sequence length in the following way:
+
+[1,12,5,64] * [1,12,64,5]
+
+I'm doing that:
+ Q=torch.movedim(Q,(1,2),(2,1))
+    K=torch.movedim(K,(1,2,3),(3,1,2))
+    Q_K=Q@K
+
+And indeed I have the correct shape output:
+
+Now for the V we have the following initial shapes:
+QK:[1, 12, 5, 5] | V:[1, 5, 12, 64]
+
+Output => [1, 5, 12, 64]
+
+[1, 12, 5, 5]  * [1, 12, 5, 64] => [1, 12, 5, 64]
 
 
 

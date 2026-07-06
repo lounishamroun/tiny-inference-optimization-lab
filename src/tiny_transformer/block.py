@@ -119,26 +119,26 @@ def head_wise_attention_compute(qkv_proj):
     n_heads=Q.shape[-2]
     head_dim=Q.shape[-1]
     
-    Q_K=torch.zeros((batch_size, n_heads, seq_length, seq_length)).to(DEVICE)
     m = nn.Softmax(dim=-1)
     
-    Q_K=Q@K.transpose(-2, -1) #shape => [batch_size,seq_length,n_heads,n_heads]
-    assert Q_K.shape[0] == batch_size
-    assert Q_K.shape[1] == seq_length
-    assert Q_K.shape[2] == n_heads
-    assert Q_K.shape[3] == n_heads
+    print(f'Q : {Q.shape} * K : {K.shape} ')
     
-    Q_K[-1]=torch.tril(Q_K[-1], diagonal=0)
-    mask=(Q_K[-1] == 0)
+    Q=torch.movedim(Q,(1,2),(2,1))
+    K=torch.movedim(K,(1,2,3),(3,1,2))
+    Q_K=Q@K
+    
+    print(f'Q_K shape: {Q_K.shape}')
+    
+    Q_K=torch.tril(Q_K, diagonal=0)
+    mask=(Q_K == 0)
     Q_K=Q_K.masked_fill_(mask, float("-inf"))
-    Q_K=torch.div(Q_K,head_dim)
+    Q_K=torch.div(Q_K,sqrt(head_dim))
     Q_K=m(Q_K)    
+    print(f'V shape:{V.shape} ')
+    V=torch.movedim(V,(1,2),(2,1))
     attention_matrix=Q_K@V
+    print(attention_matrix.shape)
     
-    assert attention_matrix.shape[0] == batch_size, f'Batch size dimension should be : {batch_size} but got :{Q_K.shape[0]}'
-    assert attention_matrix.shape[1] == seq_length, f'Sequence dimension should be : {seq_length} but got :{Q_K.shape[1]}'
-    assert attention_matrix.shape[2] == n_heads, f'N head dimension should be : {head_dim} but got :{Q_K.shape[2]}'
-    assert attention_matrix.shape[3] == head_dim, f'Head dimension should be : {head_dim} but got :{Q_K.shape[3]}'
     
 
 def LayerNorm(x,residual_x):

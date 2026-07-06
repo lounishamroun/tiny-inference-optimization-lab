@@ -119,12 +119,13 @@ def head_wise_attention_compute(qkv_proj):
     Q=torch.movedim(Q,(1,2),(2,1))
     K=torch.movedim(K,(1,2,3),(3,1,2))
     Q_K=Q@K
+
+    mask_matrix=torch.ones_like(Q_V,device=Q.device)
+    mask_matrix=torch.triu(mask_matrix)
+    mask=(x==1)
+    mask_matrix=mask_matrix.masked_fill_(mask, float("-inf"))
+    Q_K=Q_K-mask_matrix
     
-    print(f'Q_K shape: {Q_K.shape}')
-    
-    Q_K=torch.tril(Q_K, diagonal=0)
-    mask=(Q_K == 0)
-    Q_K=Q_K.masked_fill_(mask, float("-inf"))
     Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    
     print(f'V shape:{V.shape} ')

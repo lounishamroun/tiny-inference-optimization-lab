@@ -27,8 +27,7 @@ def tokenize_text(INPUT_TEXT):
         pretrained_model_name_or_path="openai-community/gpt2",
         )
     token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
-    token_ids=token_ids.to(DEVICE)
-    return token_ids #returns token ids + shape(batch_size,sequence_length)
+    return token_ids #returns token ids + shape(batch_size,sequence_length) /!\ Device = CPU
 
 def ids_to_gpt2_input_embeddings(token_ids,model):
     """

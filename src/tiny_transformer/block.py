@@ -62,13 +62,13 @@ def ids_to_gpt2_input_embeddings(token_ids,model):
     assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
     return x 
 
-class q_k_v_proj(nn.Module):
-    def __init__(self,d_model,device="cuda:0"):
+class QKVProjection(nn.Module):
+    def __init__(self,d_model):
         super().__init__()
         self.d_model=d_model
-        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
-        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
-        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model).to(device)
+        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
     def forward(self,x:torch.tensor):
         Q=self.Qw(x)
@@ -157,7 +157,7 @@ if __name__=="__main__":
     d_model=embeddings.shape[2]
 
     """ Perform Q,K,V projection and output each Q,K,V matrices """
-    proj_obj=q_k_v_proj(d_model)
+    proj_obj=QKVProjection(d_model).to(DEVICE)
     x_proj=proj_obj(x=embeddings) 
     # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head
     

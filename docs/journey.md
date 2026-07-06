@@ -58,3 +58,13 @@ for i in range(n_heads):
 ```
 
 - In general, I should remember to use assertions only during development and prioritize tests when benchmarking, since certain assertions can consume GPU memory.
+
+- One of my mistake was also to use condition on null values to create the causal mask instead of relying on position.
+```text
+i.e : Creating a lower triangular matrix than replacing 0 values with `float(-inf)`.
+
+Instead, I created an upper triangular matrix where the only non-null values were 1s, replaced those 1s with `float(-inf)`, and subtracted it from the Q_V matrix.
+
+
+```
+

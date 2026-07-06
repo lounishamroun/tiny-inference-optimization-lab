@@ -122,7 +122,7 @@ def head_wise_attention_compute(qkv_proj):
 
     mask_matrix=torch.ones_like(Q_K,device=Q.device)
     mask_matrix=torch.triu(mask_matrix)
-    mask=(x==1)
+    mask=(mask_matrix==1)
     mask_matrix=mask_matrix.masked_fill_(mask, float("-inf"))
     Q_K=Q_K-mask_matrix
     

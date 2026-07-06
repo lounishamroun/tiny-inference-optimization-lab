@@ -46,3 +46,13 @@ The embedding stage is now understood and verified.
 ### Mistakes - Attention
 
 - I used `torch.tril` to create the causal mask. However, this function produces `0` values in the masked positions, whereas they should be `-inf` before the softmax operation, because softmax may still treat `0` as a valid score.
+
+- This wasn’t a mistake, but rather a design issue. I was using a loop to compute attention for each head instead of computing the dot product in a single batched operation.
+
+```python
+for i in range(n_heads):
+        Q_tmp=Q[:,:,i,:]
+        K_tmp=K[:,:,i,:]
+        # all following ops were occuring the loop
+        ...
+```

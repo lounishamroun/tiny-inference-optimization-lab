@@ -56,3 +56,5 @@ for i in range(n_heads):
         # all following ops were occuring inside the loop
         ...
 ```
+
+- In general, I should remember to use assertions only during development and prioritize tests when benchmarking, since certain assertions can consume GPU memory.

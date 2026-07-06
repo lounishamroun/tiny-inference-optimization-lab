@@ -133,7 +133,11 @@ def head_wise_attention_compute(qkv_proj):
     print(f'V shape:{V.shape} ')
     V=torch.movedim(V,(1,2),(2,1))
     attention_matrix=Q_K@V
-    print(f"Attention shape : {attention_matrix.shape}")
+    #Merging heads:
+        #Shape: [1, 12, 5, 64] => [1, 5, 768]
+    attention_matrix=torch.reshape(torch.movedim(attention_matrix,(1,2),(2,1)),(batch_size, seq_length,n_heads*head_dim))
+    
+    return attention_matrix
     
     
 

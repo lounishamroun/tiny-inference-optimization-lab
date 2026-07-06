@@ -45,6 +45,10 @@ The embedding stage is now understood and verified.
 
 ### Mistakes - Attention
 
+The goal here is to compute the dot product reduces/sums over Dh=64 to produce one similarity score for each query-token/key-token pair.
+
+Then spread that information by multiplying by the `V` matrix.
+
 - I used `torch.tril` to create the causal mask. However, this function produces `0` values in the masked positions, whereas they should be `-inf` before the softmax operation, because softmax may still treat `0` as a valid score.
 
 - This wasn’t a mistake, but rather a design issue. I was using a loop to compute attention for each head instead of computing the dot product in a single batched operation.

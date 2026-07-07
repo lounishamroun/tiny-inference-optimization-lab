@@ -122,8 +122,8 @@ def head_wise_attention_compute(qkv_proj):
 
     print(f"Q K shape : {Q_K.shape}")
     
-    for i in range(seq_length):
-        Q_K[:,:,i,i+1:seq_length]=float("-inf")
+    for i,j in enumerate(range(seq_length)):
+        Q_K[:,:,i,j+1:seq_length]=float("-inf")
     
     print(f"Positional causal mask test :{Q_K}")
     

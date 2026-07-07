@@ -119,18 +119,14 @@ def head_wise_attention_compute(qkv_proj):
     Q=torch.movedim(Q,(1,2),(2,1))
     K=torch.movedim(K,(1,2,3),(3,1,2))
     Q_K=Q@K
-
-    print(f"Q K shape : {Q_K.shape}")
-    
+    #scaling
+    Q_K=torch.div(Q_K,math.sqrt(head_dim))
     #Creating a broadcastable mask
     mask=torch.ones_like(Q_K[0,0,:,:]) 
     mask=torch.triu(mask,diagonal=1)
     mask=mask==1
     #Broadcasting mask
     Q_K=Q_K.masked_fill_(mask,float('-inf'))
-    
-  
-    Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    
 
     #checking post Softmax sum=1 on the column dimension (values)

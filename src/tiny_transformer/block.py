@@ -124,21 +124,20 @@ def head_wise_attention_compute(qkv_proj):
     
     #Creating a broadcastable mask
     mask=torch.ones_like(Q_K[0,0,:,:]) 
-    mask=torch.tril(mask,diagonal=0)
+    mask=torch.triu(mask,diagonal=1)
     mask=mask==1
+    #Broadcasting mask
+    Q_K=Q_K.masked_fill_(mask,float('-inf'))
     
-    
-    """
-    for i,j in enumerate(range(seq_length)):
-        Q_K[:,:,i,j+1:seq_length]
-        print(Q_K)
-    
-    print(f"Positional causal mask test :{Q_K}")
-    """
-    
+  
     Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    
-    print(f'V shape:{V.shape} ')
+
+    #checking post Softmax sum=1 on the column dimension (values)
+    one_tensor=torch.tensor([1.]).to(Q_K.device)
+    assert torch.allclose(Q_K.sum(dim=-1).max(),one_tensor)
+    assert torch.allclose(Q_K.sum(dim=-1).min(),one_tensor)
+     
     V=torch.movedim(V,(1,2),(2,1))
     attention_matrix=Q_K@V
     #Merging heads:

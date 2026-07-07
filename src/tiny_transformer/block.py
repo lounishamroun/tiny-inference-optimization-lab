@@ -114,28 +114,26 @@ def head_wise_attention_compute(qkv_proj):
     
     m = nn.Softmax(dim=-1)
     
-    print(f'Q : {Q.shape} * K : {K.shape} ')
-    
     Q=torch.movedim(Q,(1,2),(2,1))
     K=torch.movedim(K,(1,2,3),(3,1,2))
-    Q_K=Q@K
+    scores=Q@K
     #scaling
-    Q_K=torch.div(Q_K,math.sqrt(head_dim))
+    scaled_scores=torch.div(scores,math.sqrt(head_dim))
     #Creating a broadcastable mask
-    mask=torch.ones_like(Q_K[0,0,:,:]) 
+    mask=torch.ones_like(scaled_scores[0,0,:,:]) 
     mask=torch.triu(mask,diagonal=1)
     mask=mask==1
     #Broadcasting mask
-    Q_K=Q_K.masked_fill_(mask,float('-inf'))
-    Q_K=m(Q_K)    
+    masked_scores=scaled_scores.masked_fill_(mask,float('-inf'))
+    softmax_scores=m(masked_scores)    
 
     #checking post Softmax sum=1 on the column dimension (values)
-    one_tensor=torch.tensor([1.]).to(Q_K.device)
-    assert torch.allclose(Q_K.sum(dim=-1).max(),one_tensor)
-    assert torch.allclose(Q_K.sum(dim=-1).min(),one_tensor)
+    one_tensor=torch.tensor([1.]).to(softmax_scores.device)
+    assert torch.allclose(softmax_scores.sum(dim=-1).max(),one_tensor)
+    assert torch.allclose(softmax_scores.sum(dim=-1).min(),one_tensor)
      
     V=torch.movedim(V,(1,2),(2,1))
-    attention_matrix=Q_K@V
+    attention_matrix=scores@V
     #Merging heads:
         #Shape: [1, 12, 5, 64] => [1, 5, 768]
     attention_matrix=torch.reshape(torch.movedim(attention_matrix,(1,2),(2,1)),(batch_size, seq_length,n_heads*head_dim))

@@ -124,9 +124,11 @@ def head_wise_attention_compute(qkv_proj):
 
     mask_matrix=torch.ones_like(Q_K,device=Q.device)
     mask_matrix=torch.triu(mask_matrix,diagonal=1)
-    mask=(mask_matrix==1)
-    mask_matrix=mask_matrix.masked_fill_(mask, float("-inf"))
-    Q_K=Q_K-mask_matrix
+    
+    for i in range(seq_length):
+        Q_K[:,:,i,i+1:seq_length]=float("-inf")
+    
+    print(f"Positional causal mask test :{Q_K}")
     
     Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    
@@ -171,7 +173,7 @@ if __name__=="__main__":
     """ Turns Q,K,V matrices into a multi-head paradigm"""
     # IN: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head  
     qkv_proj=multi_head_qkv_proj(x_proj)
-    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model]) | n_heads 
+    
    
     qkv_attention=head_wise_attention_compute(qkv_proj) #TO DO
     # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])

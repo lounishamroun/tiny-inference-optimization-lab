@@ -103,46 +103,85 @@ of shape [B, T, (h), d_head] "(h) being the head index"
 and output a computed attention for head (h).
 """
 def head_wise_attention_compute(qkv_proj):
-    Q=qkv_proj[0]
-    K=qkv_proj[1]
-    V=qkv_proj[2]
-    
-    batch_size=Q.shape[0]
-    seq_length=Q.shape[1]
-    d_model=Q.shape[-1]*Q.shape[-2]
-    n_heads=Q.shape[-2]
-    head_dim=Q.shape[-1]
-    
-    m = nn.Softmax(dim=-1)
-    
-    Q=torch.movedim(Q,(1,2),(2,1))
-    K=torch.movedim(K,(1,2,3),(3,1,2))
-    scores=Q@K
-    #scaling
-    scaled_scores=torch.div(scores,math.sqrt(head_dim))
-    #Creating a broadcastable mask
-    mask=torch.ones_like(scaled_scores[0,0,:,:]) 
-    mask=torch.triu(mask,diagonal=1)
-    mask=mask==1
-    #Broadcasting mask
-    masked_scores=scaled_scores.masked_fill_(mask,float('-inf'))
-    softmax_scores=m(masked_scores)    
+    Q = qkv_proj[0]
+    K = qkv_proj[1]
+    V = qkv_proj[2]
 
-    #checking post Softmax sum=1 on the column dimension (values)
-    one_tensor=torch.tensor([1.]).to(softmax_scores.device)
-    assert torch.allclose(softmax_scores.sum(dim=-1).max(),one_tensor)
-    assert torch.allclose(softmax_scores.sum(dim=-1).min(),one_tensor)
-     
-    V=torch.movedim(V,(1,2),(2,1))
-    attention_matrix=softmax_scores@V
-    #Merging heads:
-        #Shape: [1, 12, 5, 64] => [1, 5, 768]
-    attention_matrix=torch.reshape(torch.movedim(attention_matrix,(1,2),(2,1)),(batch_size, seq_length,n_heads*head_dim))
-    
-    #sanity check for future optimization
+    batch_size = Q.shape[0]
+    seq_length = Q.shape[1]
+    n_heads = Q.shape[-2]
+    head_dim = Q.shape[-1]
+    d_model = n_heads * head_dim
+
+    m = nn.Softmax(dim=-1)
+
+    # Q, K, V initially: [B, T, H, Dh]
+    # Move to attention-friendly layout.
+    Q = torch.movedim(Q, (1, 2), (2, 1))  # [B, H, T, Dh]
+    K = torch.movedim(K, (1, 2), (2, 1))  # [B, H, T, Dh]
+    V = torch.movedim(V, (1, 2), (2, 1))  # [B, H, T, Dh]
+
+    assert Q.shape == torch.Size([batch_size, n_heads, seq_length, head_dim])
+    assert K.shape == torch.Size([batch_size, n_heads, seq_length, head_dim])
+    assert V.shape == torch.Size([batch_size, n_heads, seq_length, head_dim])
+
+    # Attention scores: [B, H, T, Dh] @ [B, H, Dh, T] -> [B, H, T, T]
+    scores = Q @ K.transpose(-2, -1)
+
+    assert scores.shape == torch.Size([batch_size, n_heads, seq_length, seq_length])
+
+    # Scale by sqrt(head_dim), not head_dim and not d_model.
+    scaled_scores = scores / math.sqrt(head_dim)
+
+    # Causal mask: True where key position j is in the future of query position i.
+    # Shape: [T, T], broadcastable to [B, H, T, T]
+    mask = torch.ones(
+        (seq_length, seq_length),
+        device=scaled_scores.device,
+        dtype=torch.bool,
+    )
+    mask = torch.triu(mask, diagonal=1)
+
+    # Replace future-token logits with -inf.
+    masked_scores = scaled_scores.masked_fill(mask, float("-inf"))
+
+    # Softmax over key-token dimension.
+    softmax_scores = m(masked_scores)
+
+    assert softmax_scores.shape == torch.Size([batch_size, n_heads, seq_length, seq_length])
+
+    # Check each attention row sums to 1.
+    row_sums = softmax_scores.sum(dim=-1)
+    ones = torch.ones_like(row_sums)
+    assert torch.allclose(row_sums, ones, atol=1e-6), (
+        f"Attention rows do not sum to 1. "
+        f"max diff = {(row_sums - ones).abs().max().item()}"
+    )
+
+    # Check future positions have zero probability after softmax.
+    future_weights = softmax_scores.masked_select(mask)
+    assert torch.allclose(
+        future_weights,
+        torch.zeros_like(future_weights),
+        atol=1e-6,
+    ), f"Future tokens are receiving attention. max={future_weights.max().item()}"
+
+    # Attention output: [B, H, T, T] @ [B, H, T, Dh] -> [B, H, T, Dh]
+    attention_matrix = softmax_scores @ V
+
+    assert attention_matrix.shape == torch.Size([batch_size, n_heads, seq_length, head_dim])
+
+    # Merge heads:
+    # [B, H, T, Dh] -> [B, T, H, Dh] -> [B, T, D]
+    attention_matrix = torch.movedim(attention_matrix, (1, 2), (2, 1))
+    attention_matrix = attention_matrix.reshape(batch_size, seq_length, d_model)
+
+    assert attention_matrix.shape == torch.Size([batch_size, seq_length, d_model])
+
+    # Sanity check for future optimization.
     if not attention_matrix.is_contiguous():
-    warnings.warn("attention_matrix is not contiguous", UserWarnin
-    
+        warnings.warn("attention_matrix is not contiguous", UserWarning)
+
     return attention_matrix
     
     

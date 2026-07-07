@@ -121,9 +121,6 @@ def head_wise_attention_compute(qkv_proj):
     Q_K=Q@K
 
     print(f"Q K shape : {Q_K.shape}")
-
-    mask_matrix=torch.ones_like(Q_K,device=Q.device)
-    mask_matrix=torch.triu(mask_matrix,diagonal=1)
     
     for i in range(seq_length):
         Q_K[:,:,i,i+1:seq_length]=float("-inf")

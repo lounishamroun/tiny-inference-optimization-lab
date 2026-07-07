@@ -122,10 +122,19 @@ def head_wise_attention_compute(qkv_proj):
 
     print(f"Q K shape : {Q_K.shape}")
     
+    #Creating a broadcastable mask
+    mask=torch.ones_like(Q_K[0,0,:,:]) 
+    mask=torch.tril(mask,diagonal=0)
+    mask=mask==1
+    
+    
+    """
     for i,j in enumerate(range(seq_length)):
-        Q_K[:,:,i,j+1:seq_length]=float("-inf")
+        Q_K[:,:,i,j+1:seq_length]
+        print(Q_K)
     
     print(f"Positional causal mask test :{Q_K}")
+    """
     
     Q_K=torch.div(Q_K,math.sqrt(head_dim))
     Q_K=m(Q_K)    

@@ -17,6 +17,7 @@ from torch import nn
 from transformers import AutoTokenizer, AutoModel
 from boilerplates.similarity_test import compare_tensor_pair
 import math
+import warnings
 
 _N_HEADS=12
 _HEAD_DIM=64
@@ -137,6 +138,10 @@ def head_wise_attention_compute(qkv_proj):
     #Merging heads:
         #Shape: [1, 12, 5, 64] => [1, 5, 768]
     attention_matrix=torch.reshape(torch.movedim(attention_matrix,(1,2),(2,1)),(batch_size, seq_length,n_heads*head_dim))
+    
+    #sanity check for future optimization
+    if not attention_matrix.is_contiguous():
+    warnings.warn("attention_matrix is not contiguous", UserWarnin
     
     return attention_matrix
     

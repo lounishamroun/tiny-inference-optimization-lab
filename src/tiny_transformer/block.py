@@ -134,7 +134,7 @@ def head_wise_attention_compute(qkv_proj):
     assert torch.allclose(softmax_scores.sum(dim=-1).min(),one_tensor)
      
     V=torch.movedim(V,(1,2),(2,1))
-    attention_matrix=scores@V
+    attention_matrix=softmax_scores@V
     #Merging heads:
         #Shape: [1, 12, 5, 64] => [1, 5, 768]
     attention_matrix=torch.reshape(torch.movedim(attention_matrix,(1,2),(2,1)),(batch_size, seq_length,n_heads*head_dim))

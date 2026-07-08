@@ -21,6 +21,7 @@ import warnings
 
 _N_HEADS=12
 _HEAD_DIM=64
+_D_EXPANSION=3072
 
 def tokenize_text(INPUT_TEXT):
 # We'll use a pre-trained tokenizer since we'll use quite generic data
@@ -185,7 +186,6 @@ def head_wise_attention_compute(qkv_proj):
 
 
 def LayerNormConcat(x,residual_x,d_model):
-    print(f'X device is : {x.device} | residual device is {residual_x.device} : ')
     concat=x+residual_x
     layer_norm=nn.LayerNorm(normalized_shape=d_model,device=x.device)
     concat_norm=layer_norm(concat)
@@ -193,17 +193,23 @@ def LayerNormConcat(x,residual_x,d_model):
 
 """
 Input : Merged heads of shape => [B, T, d_model]
-
 """
-
-""" IN PROGRESS
-class mlp(nn.Module):
-    def __init__(self,residual):
+class FeedForward(nn.Module):
+    def __init__(self,d_model,d_expansion):
         super().__init__()
-        self.augmented=nn.Linear(in_features=?,out_features=?)
-""" 
-
-
+        self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
+        self.activation=nn.ReLU()
+        self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
+    
+    def forward(self,x):
+        batch_size=x.shape[0]
+        seq_length=x.shape[1]
+        d_model=x.shape[2]
+        x=self.augmented(x)
+        x=self.activation(x)
+        x=self.reduced(x)
+        assert x.shape == torch.Size([batch_size,seq_length,d_model])
+        return x
 
     
 if __name__=="__main__":
@@ -231,13 +237,14 @@ if __name__=="__main__":
     
     """ Turns Q,K,V matrices into a multi-head paradigm"""
     # IN: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head  
-    qkv_proj=multi_head_qkv_proj(x_proj)
-    
-   
+    qkv_proj=multi_head_qkv_proj(x_proj)   
     qkv_attention=head_wise_attention_compute(qkv_proj)
-    LayerNormConcat(qkv_attention,residual,d_model)
-    # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
-   
+    normalized_output=LayerNormConcat(qkv_attention,residual,d_model)
+    
+    ff=FeedForward(d_model=d_model,d_expansion=_D_EXPANSION).to(normalized_output.device)
+    final_layer=ff(normalized_output)
+
+    
 
     
     

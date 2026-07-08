@@ -2,6 +2,7 @@
 
 `You can access the main checkpoints by looking for commits containing the keyword 'checkpoint'`
 
+To have an overview of how a transformer works, I recommend this website : https://poloclub.github.io/transformer-explainer/
 
 The first step consists of building a transformer block using PyTorch and HuggingFace.
 

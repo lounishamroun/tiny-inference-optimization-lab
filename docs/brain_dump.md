@@ -21,4 +21,41 @@ So I think we should get back and change our  head_wise_attention_compute(qkv_pr
 residual=embeddings
 ...... (other lines of code)
 qkv_attention=head_wise_attention_compute(qkv_proj)
-LayerNormConcat(qkv_attention,residual)
+LayerNormConcat(qkv_attention,residual).
+
+So if I remember correctly, there's batch norm and layer norm.
+
+Batch norm prevents distribution shift across batches while layer norm is just normalizing values across a certain dimension.
+
+So here I guess we would normalize accross model parameters to have somehow similar feature distribution.
+
+So I read that while batch normalization is effective it's tied to batch size since the mean and std are sampled from the current batch.
+
+In batch norm : We basically compute stats for each neurons of a particular layer based on aggregated batches stats.
+In layer norm: We compute stats across all neurons of a particular layer (instead of per neuron like in batch norm).
+
+So I guess they say "layer norm" doesn't impose constraint since even there's a batch of 1 , you can still computes stats on all hidden states as opposed to batch norm where you would be limited (having to compute stats with only one neuron exemple).
+
+
+Here's my first attempt at layernorm function:
+
+def LayerNormConcat(x,residual_x,d_model):
+    concat=x+residual_x
+    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=x.device)
+    concat_norm=layer_norm(concat)
+    return concat_norm
+
+Now let's get back to the MLP.
+
+In the paper they say this :
+
+`two linear transformations with a ReLU activation in between`
+
+This means that we need an expension layer + ReLu activation + The opposite operation
+While the linear transformations are the same across different positions, they use different parameters
+from layer to layer. Another way of describing this is as two convolutions with kernel size 1.
+The dimensionality of input and output is dmodel = 512, and the inner-layer has dimensionality
+df f = 2048
+
+Let's take 3072 for our case (idk if it's good just saw it on a website).
+

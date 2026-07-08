@@ -5,15 +5,15 @@ Decoder (GPT STYLE)
         d_model = 768 : Correponds to the length of our embeddings.
         n_heads = 12
         head_dim = 64
-        B = 1 : Batch size
-        T = 5 : Number of tokens extracted from the sequence 
+        batch_size = 1
+        seq_length = 5 : Number of tokens extracted from the sequence 
         context_length = 1024
         vocab_size = 50257
     Euristics:
         dropout probability = 0.1
 """
 
-from . import data_loader
+from . import data_loader,embeddings_map
 import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModel
@@ -25,46 +25,6 @@ _N_HEADS=12
 _HEAD_DIM=64
 _D_EXPANSION=3072
 
-def tokenize_text(INPUT_TEXT):
-# We'll use a pre-trained tokenizer since we'll use quite generic data
-    tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path="openai-community/gpt2",
-        )
-    token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
-    return token_ids #returns token ids + shape(batch_size,sequence_length) /!\ Device = CPU
-
-def ids_to_gpt2_input_embeddings(token_ids,model):
-    """
-        Used to output a corresponding embedding given a token ID.
-
-        Args:
-            token_ids =>  dtype: torch.Tensor | shape:[B, T] :
-                meaning: vocabulary indices
-                
-        Returns:
-            Type: `torch.Tensor` | shape:[B,T,d_model] :
-                List of embeddings corresponding to each of our sequence of tokens.
-    """
-    #### Model Handle
-    model.eval()
-    B, T = token_ids.shape
-    token_embedding_module = model.wte
-    position_embedding_module = model.wpe
-    
-    #### Token Embeddings ####
-    tok_embeddings=token_embedding_module(token_ids)  # Generates word embeddings for our sequence
-    
-    #### Positional Embeddings ####
-    seq_offset=torch.arange(start=0,end=T)
-    seq_offset=seq_offset.to(tok_embeddings.device)
-    pos_embeddings=position_embedding_module(seq_offset) # Generates positional embeddings for our sequence
-    
-    d_model=tok_embeddings.shape[-1]
-    
-    #### Input Embedding ####
-    x=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
-    assert x.shape == torch.Size([B, T, d_model]), f'Shape is {B, T, d_model}'
-    return x 
 
 class QKVProjection(nn.Module):
     def __init__(self,d_model):
@@ -76,8 +36,6 @@ class QKVProjection(nn.Module):
         self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
     def forward(self,x:torch.tensor):
-        x=self.dropout(x)
-        residual=x
         Q=self.Qw(x)
         K=self.Kw(x)
         V=self.Vw(x)
@@ -226,7 +184,17 @@ class FeedForward(nn.Module):
         """
         return x,residual
 
-    
+""" 
+INPUT : Embeddings
+Output : Embedding matrix of shape => [batch_size,seq_length,d_model] 
+
+"""
+class TinyDecoderBlock(nn.Module):
+    def __init__(self,text):
+        super().__init__()
+        self.input_text=text
+        
+
 if __name__=="__main__":
     
     if torch.cuda.is_available():
@@ -234,14 +202,13 @@ if __name__=="__main__":
     else:
         DEVICE="cpu"
 
+    """ 
+    Retreiving embeddings for an input text sequence
+    Output shape => [B,T,d_model] 
+    """
+
     INPUT_TEXT = data_loader.return_text("data/text.txt")
-    global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
-    global_model=global_model.to(DEVICE)
-    
-    """ Retreive embedding for the sequence | Output shape => [B,T,d_model] | Device = cuda:0 """
-    token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
-    token_ids=token_ids.to(DEVICE) 
-    embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
+    embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
     
     """ Perform Q,K,V projection and output each Q,K,V matrices """
     d_model=embeddings.shape[2]

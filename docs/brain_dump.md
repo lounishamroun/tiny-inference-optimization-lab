@@ -1,61 +1,69 @@
-Ok so the next step seem to be the MLP which will increase dimension and squish the dimension back.
 
-So I created a class "mlp", which will take the residual as an argument and merge it somehow with the embeddings which hadn't projection/attention applied to. 
+Constructive feedback and critic on ingineer intuition, technical choices etc...
 
-So here in the main I will create a residual variable: 
-```python
-embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
-reisudal=embeddings
-```
+So I started by adding the dropout and outputting the residual:
 
-Ok so in the paper we have the following sentence :
-```text
-We employ a residual connection [11] around each of
-the two sub-layers, followed by layer normalization [1]. That is, the output of each sub-layer is
-LayerNorm(x + Sublayer(x)), where Sublayer(x) is the function implemented by the sub-layer
-itself
-```
+class QKVProjection(nn.Module):
+    def __init__(self,d_model):
+        super().__init__()
+        self.d_model=d_model
+        self.dropout=nn.Dropout(p=0.1)
+        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        
+    def forward(self,x:torch.tensor):
+        x=self.dropout(x)
+        residual=x
+        Q=self.Qw(x)
+        K=self.Kw(x)
+        V=self.Vw(x)
+        
+        return [Q,K,V],residual
 
-So I think we should get back and change our  head_wise_attention_compute(qkv_proj) function in order to output LayerNorm(residual + original function output), oh no wait let's create a function which merges residuals and output and does layer norm so that we handle it in the main to better seperate concerns, having something like that :
+I did the same for the final mlp layer by integrating layer norm, like you said, I forgot there was a learnable parameter in this function and I also integrated dropout:
 
-residual=embeddings
-...... (other lines of code)
-qkv_attention=head_wise_attention_compute(qkv_proj)
-LayerNormConcat(qkv_attention,residual).
+class FeedForward(nn.Module):
+    def __init__(self,residual,d_model,d_expansion):
+        super().__init__()
+        self.residual=residual
+        self.dropout=nn.Dropout(p=0.1)
+        self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
+        self.activation=nn.ReLU()
+        self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
+        self.layer_norm=nn.LayerNorm(normalized_shape=d_model)
+    
+    def forward(self,x):
+        mlp_input=x
+        layer_norm=self.layer_norm.to(x.device)
+        
+        """ MLP """
+        x=self.dropout(x)
+        x=x+self.residual #residual concat
+        residual=x
+        x=self.augmented(x)
+        x=self.activation(x)
+        x=self.reduced(x)
+        x=layer_norm(x)
+        
+        
+        """ Assertions """
+        assert x.shape == mlp_input.shape #checking invariance.
+        
+        """ Output 
+        MLP forward shape => [batch_size,seq_length,d_model]
+        new residual (unaffected by linear layer) shape => [batch_size,seq_length,d_model] 
+        """
+        return x,residual
 
-So if I remember correctly, there's batch norm and layer norm.
+However I read your recommendation on managing this the residual and layer norm in another decoder block.
 
-Batch norm prevents distribution shift across batches while layer norm is just normalizing values across a certain dimension.
+So I guess I should do the same for dropout so that we seperate training data with linear ops.
 
-So here I guess we would normalize accross model parameters to have somehow similar feature distribution.
+I will start by merging
 
-So I read that while batch normalization is effective it's tied to batch size since the mean and std are sampled from the current batch.
+def tokenize_text(INPUT_TEXT) and def ids_to_gpt2_input_embeddings(token_ids,model)
 
-In batch norm : We basically compute stats for each neurons of a particular layer based on aggregated batches stats.
-In layer norm: We compute stats across all neurons of a particular layer (instead of per neuron like in batch norm).
+So that I directly have a text to embedding function which output will be directly fed to the transformer.
 
-So I guess they say "layer norm" doesn't impose constraint since even there's a batch of 1 , you can still computes stats on all hidden states as opposed to batch norm where you would be limited (having to compute stats with only one neuron exemple).
-
-
-Here's my first attempt at layernorm function:
-
-def LayerNormConcat(x,residual_x,d_model):
-    concat=x+residual_x
-    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=x.device)
-    concat_norm=layer_norm(concat)
-    return concat_norm
-
-Now let's get back to the MLP.
-
-In the paper they say this :
-
-`two linear transformations with a ReLU activation in between`
-
-This means that we need an expension layer + ReLu activation + The opposite operation
-While the linear transformations are the same across different positions, they use different parameters
-from layer to layer. Another way of describing this is as two convolutions with kernel size 1.
-The dimensionality of input and output is dmodel = 512, and the inner-layer has dimensionality
-df f = 2048
-
-Let's take 3072 for our case (idk if it's good just saw it on a website).
-
+I think its even better to create a dedicated EmbeddingMap class in a seperate module

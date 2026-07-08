@@ -9,6 +9,8 @@ Decoder (GPT STYLE)
         T = 5 : Number of tokens extracted from the sequence 
         context_length = 1024
         vocab_size = 50257
+    Euristics:
+        dropout probability = 0.1
 """
 
 from . import data_loader
@@ -68,20 +70,23 @@ class QKVProjection(nn.Module):
     def __init__(self,d_model):
         super().__init__()
         self.d_model=d_model
+        self.dropout=nn.Dropout(p=0.1)
         self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
     def forward(self,x:torch.tensor):
+        x=self.dropout(x)
+        residual=x
         Q=self.Qw(x)
         K=self.Kw(x)
         V=self.Vw(x)
         
-        return Q,K,V
+        return [Q,K,V],residual
     
 """ Takes one embedding projection to turn it into a multi-head tensor
     input: [B,T,d_model]
-    output: [B,T,(h),head_dim] (h) being the number of heads
+    output: QKV projection of shape : ([B,T,(h),head_dim]) (h) being the number of heads, residual of shape : ([B,T,d_model])  
 """
 def multi_head_proj(embedding_projection,n_heads=_N_HEADS,head_dim=_HEAD_DIM):
     B,T,d_model=embedding_projection.shape[0],embedding_projection.shape[1],embedding_projection.shape[2]
@@ -183,32 +188,43 @@ def head_wise_attention_compute(qkv_proj):
         warnings.warn("attention_matrix is not contiguous", UserWarning)
 
     return attention_matrix
-
-
-def LayerNormConcat(layer_norm,x,residual_x,d_model):
-    concat=x+residual_x
-    concat_norm=layer_norm(concat)
-    return concat_norm
+  
 
 """
 Input : Merged heads of shape => [B, T, d_model]
 """
 class FeedForward(nn.Module):
-    def __init__(self,d_model,d_expansion):
+    def __init__(self,residual,d_model,d_expansion):
         super().__init__()
+        self.residual=residual
+        self.dropout=nn.Dropout(p=0.1)
         self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
         self.activation=nn.ReLU()
         self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
+        self.layer_norm=nn.LayerNorm(normalized_shape=d_model)
     
     def forward(self,x):
-        batch_size=x.shape[0]
-        seq_length=x.shape[1]
-        d_model=x.shape[2]
+        mlp_input=x
+        layer_norm=self.layer_norm.to(x.device)
+        
+        """ MLP """
+        x=self.dropout(x)
+        x=x+self.residual #residual concat
+        residual=x
         x=self.augmented(x)
         x=self.activation(x)
         x=self.reduced(x)
-        assert x.shape == torch.Size([batch_size,seq_length,d_model])
-        return x
+        x=layer_norm(x)
+        
+        
+        """ Assertions """
+        assert x.shape == mlp_input.shape #checking invariance.
+        
+        """ Output 
+        MLP forward shape => [batch_size,seq_length,d_model]
+        new residual (unaffected by linear layer) shape => [batch_size,seq_length,d_model] 
+        """
+        return x,residual
 
     
 if __name__=="__main__":
@@ -226,23 +242,21 @@ if __name__=="__main__":
     token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
     token_ids=token_ids.to(DEVICE) 
     embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
-    residual=embeddings
     
     """ Perform Q,K,V projection and output each Q,K,V matrices """
     d_model=embeddings.shape[2]
     proj_obj=QKVProjection(d_model).to(DEVICE)
-    x_proj=proj_obj(x=embeddings) 
+    x_proj,residual=proj_obj(x=embeddings) 
+    print(f"residual of shape : {residual.shape}")
     # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head
     
     """ Turns Q,K,V matrices into a multi-head paradigm"""
     # IN: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head  
     qkv_proj=multi_head_qkv_proj(x_proj)   
     qkv_attention=head_wise_attention_compute(qkv_proj)
-    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=qkv_attention.device)
-    normalized_output=LayerNormConcat(layer_norm,qkv_attention,residual,d_model)
-    
-    ff=FeedForward(d_model=d_model,d_expansion=_D_EXPANSION).to(normalized_output.device)
-    final_layer=ff(normalized_output)
+
+    ff=FeedForward(residual=residual,d_model=d_model,d_expansion=_D_EXPANSION).to(DEVICE)
+    final_mlp,residual=ff(qkv_attention)
 
     
 

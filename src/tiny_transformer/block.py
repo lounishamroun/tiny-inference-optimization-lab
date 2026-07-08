@@ -185,9 +185,8 @@ def head_wise_attention_compute(qkv_proj):
     return attention_matrix
 
 
-def LayerNormConcat(x,residual_x,d_model):
+def LayerNormConcat(layer_norm,x,residual_x,d_model):
     concat=x+residual_x
-    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=x.device)
     concat_norm=layer_norm(concat)
     return concat_norm
 
@@ -239,7 +238,8 @@ if __name__=="__main__":
     # IN: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head  
     qkv_proj=multi_head_qkv_proj(x_proj)   
     qkv_attention=head_wise_attention_compute(qkv_proj)
-    normalized_output=LayerNormConcat(qkv_attention,residual,d_model)
+    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=qkv_attention.device)
+    normalized_output=LayerNormConcat(layer_norm,qkv_attention,residual,d_model)
     
     ff=FeedForward(d_model=d_model,d_expansion=_D_EXPANSION).to(normalized_output.device)
     final_layer=ff(normalized_output)

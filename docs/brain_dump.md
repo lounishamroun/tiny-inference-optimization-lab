@@ -1,33 +1,24 @@
-Here's my thought path, and how I reasoned about the problem, again give me constructive feedback:
+Ok so the next step seem to be the MLP which will increase dimension and squish the dimension back.
 
+So I created a class "mlp", which will take the residual as an argument and merge it somehow with the embeddings which hadn't projection/attention applied to. 
 
-So let's get back to this step, the current dimension are the following:
+So here in the main I will create a residual variable: 
+```python
+embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
+reisudal=embeddings
+```
 
-Q : torch.Size([1, 5, 12, 64]) * K : torch.Size([1, 5, 12, 64]) 
+Ok so in the paper we have the following sentence :
+```text
+We employ a residual connection [11] around each of
+the two sub-layers, followed by layer normalization [1]. That is, the output of each sub-layer is
+LayerNorm(x + Sublayer(x)), where Sublayer(x) is the function implemented by the sub-layer
+itself
+```
 
-We want the following output dimension : [1,12,5,5]
+So I think we should get back and change our  head_wise_attention_compute(qkv_proj) function in order to output LayerNorm(residual + original function output), oh no wait let's create a function which merges residuals and output and does layer norm so that we handle it in the main to better seperate concerns, having something like that :
 
-So now I get it, basically we want to flattent the head dimension (64
-) because we want to "summarize" those 64 per token dimension into one similarity indicator.
-
-So following your technique, we need to swap sequence length in the following way:
-
-[1,12,5,64] * [1,12,64,5]
-
-I'm doing that:
- Q=torch.movedim(Q,(1,2),(2,1))
-    K=torch.movedim(K,(1,2,3),(3,1,2))
-    Q_K=Q@K
-
-And indeed I have the correct shape output:
-
-Now for the V we have the following initial shapes:
-QK:[1, 12, 5, 5] | V:[1, 5, 12, 64]
-
-Output => [1, 5, 12, 64]
-
-[1, 12, 5, 5]  * [1, 12, 5, 64] => [1, 12, 5, 64]
-
-
-
-
+residual=embeddings
+...... (other lines of code)
+qkv_attention=head_wise_attention_compute(qkv_proj)
+LayerNormConcat(qkv_attention,residual)

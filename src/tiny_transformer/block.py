@@ -80,7 +80,7 @@ class QKVProjection(nn.Module):
     
 """ Takes one embedding projection to turn it into a multi-head tensor
     input: [B,T,d_model]
-    output: [B,T,n_heads,head_dim]
+    output: [B,T,(h),head_dim] (h) being the number of heads
 """
 def multi_head_proj(embedding_projection,n_heads=_N_HEADS,head_dim=_HEAD_DIM):
     B,T,d_model=embedding_projection.shape[0],embedding_projection.shape[1],embedding_projection.shape[2]
@@ -97,10 +97,10 @@ def multi_head_qkv_proj(proj):
     assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
     return proj_reshape
 
+
 """ 
-Takes 3 inputs (each corresponding to one Q,K,V head) 
-of shape [B, T, (h), d_head] "(h) being the head index"
-and output a computed attention for head (h).
+Input : Q,K,V heads of shape => [B, T, (h), d_head]
+Output : Merged heads of shape => [B, T, d_model]
 """
 def head_wise_attention_compute(qkv_proj):
     Q = qkv_proj[0]
@@ -130,7 +130,6 @@ def head_wise_attention_compute(qkv_proj):
 
     assert scores.shape == torch.Size([batch_size, n_heads, seq_length, seq_length])
 
-    # Scale by sqrt(head_dim), not head_dim and not d_model.
     scaled_scores = scores / math.sqrt(head_dim)
 
     # Causal mask: True where key position j is in the future of query position i.
@@ -183,12 +182,28 @@ def head_wise_attention_compute(qkv_proj):
         warnings.warn("attention_matrix is not contiguous", UserWarning)
 
     return attention_matrix
-    
-    
 
-def LayerNorm(x,residual_x):
-    pass
-    #TO DO : LayerNorm(x + Sublayer(x))
+
+def LayerNormConcat(x,residual_x,d_model):
+    print(f'X device is : {x.device} | residual device is {residual_x.device} : ')
+    concat=x+residual_x
+    layer_norm=nn.LayerNorm(normalized_shape=d_model,device=x.device)
+    concat_norm=layer_norm(concat)
+    return concat_norm
+
+"""
+Input : Merged heads of shape => [B, T, d_model]
+
+"""
+
+""" IN PROGRESS
+class mlp(nn.Module):
+    def __init__(self,residual):
+        super().__init__()
+        self.augmented=nn.Linear(in_features=?,out_features=?)
+""" 
+
+
 
     
 if __name__=="__main__":
@@ -206,9 +221,10 @@ if __name__=="__main__":
     token_ids=tokenize_text(INPUT_TEXT=INPUT_TEXT) #Retreive token IDs
     token_ids=token_ids.to(DEVICE) 
     embeddings=ids_to_gpt2_input_embeddings(token_ids=token_ids,model=global_model)
-    d_model=embeddings.shape[2]
-
+    residual=embeddings
+    
     """ Perform Q,K,V projection and output each Q,K,V matrices """
+    d_model=embeddings.shape[2]
     proj_obj=QKVProjection(d_model).to(DEVICE)
     x_proj=proj_obj(x=embeddings) 
     # OUT: tuple([B,T,d_model],[B,T,d_model],[B,T,d_model]) | 1 head
@@ -218,7 +234,8 @@ if __name__=="__main__":
     qkv_proj=multi_head_qkv_proj(x_proj)
     
    
-    qkv_attention=head_wise_attention_compute(qkv_proj) #TO DO
+    qkv_attention=head_wise_attention_compute(qkv_proj)
+    LayerNormConcat(qkv_attention,residual,d_model)
     # OUT: tuple([B,T,h,d_model],[B,T,h,d_model],[B,T,h,d_model])
    
 

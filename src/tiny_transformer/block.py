@@ -199,7 +199,7 @@ class FeedForward(nn.Module):
         self.residual=residual
         self.dropout=nn.Dropout(p=0.1)
         self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
-        self.activation=nn.ReLU()
+        self.activation=nn.GELU()
         self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
         self.layer_norm=nn.LayerNorm(normalized_shape=d_model)
     

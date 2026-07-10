@@ -156,7 +156,6 @@ class FeedForward(nn.Module):
     
     def forward(self,x):
         mlp_input=x
-        """ MLP """
         x=self.augmented(x)
         x=self.activation(x)
         x=self.reduced(x)
@@ -207,10 +206,15 @@ if __name__=="__main__":
     """
     INPUT_TEXT = data_loader.return_text("data/text.txt")
     embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
+    d_model=embeddings.shape[-1]
     
-    """Computing Attention | Contract [B,T,d_model] => Instance => [B,T,d_model] """
-    qkv_proj=QKVProjection(d_model=embeddings.shape[-1],n_heads=_N_HEADS,head_dim=_HEAD_DIM).to(DEVICE)
-    attention=qkv_proj(embeddings=embeddings)
+    """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
+    attention=QKVProjection(d_model=d_model,n_heads=_N_HEADS,head_dim=_HEAD_DIM).to(DEVICE).forward(embeddings=embeddings)
+    
+    """MLP | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
+    ff=FeedForward(d_model=d_model,d_expansion=_D_EXPANSION).to(DEVICE).forward(attention)
+    
+    
     
     """ Final Main Structure 
     block = TinyDecoderBlock(embeddings)

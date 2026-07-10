@@ -186,7 +186,7 @@ class TinyDecoderBlock(nn.Module):
         self.head_dim=head_dim
         self.d_expansion=d_expansion
         self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
-        self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_expansion)
+        self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model)
         self.attention=CausalSelfAttention(d_model=self.d_model,n_heads=self.n_heads,head_dim=self.head_dim)
         self.mlp=FeedForward(d_model=self.d_model,d_expansion=self.d_expansion)        
         

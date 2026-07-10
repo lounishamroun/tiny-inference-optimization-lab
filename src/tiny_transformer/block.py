@@ -27,13 +27,7 @@ if torch.cuda.is_available():
 else:
     DEVICE="cpu"
         
-_N_HEADS=12
-_HEAD_DIM=64
-_D_EXPANSION=3072
 
-""" 
-Returns an array of [Q,K,V] matrices each of shape [d_model,d_model] with randomly initialized parameters.
-"""
 class CausalSelfAttention(nn.Module):
     def __init__(self,d_model,n_heads,head_dim):
         super().__init__()
@@ -115,7 +109,7 @@ class CausalSelfAttention(nn.Module):
         # Check each attention row sums to 1.
         row_sums = softmax_scores.sum(dim=-1)
         ones = torch.ones_like(row_sums)
-        assert torch.allclose(row_sums, ones, atol=1e-6), (
+        assert torch.allclose(row_sums, ones, atol=1e-6), ( #TO DO : Move into test for benchmarking
             f"Attention rows do not sum to 1. "
             f"max diff = {(row_sums - ones).abs().max().item()}"
         )
@@ -153,15 +147,15 @@ Input : Merged heads of shape => [B, T, d_model]
 class FeedForward(nn.Module):
     def __init__(self,d_model,d_expansion):
         super().__init__()
-        self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
+        self.up_proj=nn.Linear(in_features=d_model,out_features=d_expansion)
         self.activation=nn.GELU()
-        self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
+        self.down_proj=nn.Linear(in_features=d_expansion,out_features=d_model)
     
     def forward(self,x):
         mlp_input=x
-        x=self.augmented(x)
+        x=self.up_proj(x)
         x=self.activation(x)
-        x=self.reduced(x)
+        x=self.down_proj(x)
         
         """ Assertions """
         assert x.shape == mlp_input.shape #checking invariance.
@@ -179,11 +173,11 @@ Output : Embedding matrix of shape => [batch_size,seq_length,d_model]
 """
 class TinyDecoderBlock(nn.Module):
 
-    def __init__(self,d_expansion,d_model,n_heads,head_dim):
+    def __init__(self,d_expansion,d_model,n_heads):
         super().__init__()
         self.d_model=d_model
+        self.head_dim=d_model//n_heads
         self.n_heads=n_heads
-        self.head_dim=head_dim
         self.d_expansion=d_expansion
         self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
         self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model)
@@ -215,10 +209,11 @@ if __name__=="__main__":
     Transformer block
     Output shape => [B,T,d_model] 
     """
-    block=TinyDecoderBlock(d_expansion=_D_EXPANSION,
+    
+    block=TinyDecoderBlock(
+                     d_expansion=3072,
                      d_model=d_model,
-                     n_heads=_N_HEADS,
-                     head_dim=_HEAD_DIM).to(DEVICE)
+                     n_heads=12).to(DEVICE)
     
     block_output=block(embeddings)
 

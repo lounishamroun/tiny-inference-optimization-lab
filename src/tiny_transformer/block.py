@@ -192,7 +192,7 @@ class TinyDecoderBlock(nn.Module):
         embeddings=self.layer_norm(embeddings)
         attention=self.attention(embeddings=embeddings)
         pre_mlp_residual=attention+pre_attention_residual
-        attention=self.layer_norm(attention)
+        attention=self.layer_norm(pre_mlp_residual)
         post_mlp=self.mlp(attention)
         output=pre_mlp_residual+post_mlp
         return output
@@ -207,7 +207,6 @@ if __name__=="__main__":
     INPUT_TEXT = data_loader.return_text("data/text.txt")
     embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
     d_model=embeddings.shape[-1]
-    
     """ 
     Transformer block
     Output shape => [B,T,d_model] 

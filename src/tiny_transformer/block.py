@@ -39,33 +39,35 @@ class CausalSelfAttention(nn.Module):
         self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
-        
-    def forward(self,embeddings:torch.tensor):
+    def qkv_projection_helper(self,embeddings):
         
         batch_size=embeddings.shape[0]
         seq_length=embeddings.shape[1]
         
-        """ I. Q, K, V Projection """
-        
         Q=self.Qw(embeddings)
         K=self.Kw(embeddings)
         V=self.Vw(embeddings)
-        
         
         proj_reshape=[]
         for proj in [Q,K,V]:   
             B,T,d_model=embeddings.shape
             assert self.n_heads*self.head_dim==d_model,f"Can't reshape model dimension, model dimension = {self.n_heads*self.head_dim} => n_head x head_dim must be equal to d_model"
             """ Multi-Head reshape """
-            multi_head_projection=torch.reshape(proj,(B,T,self.n_heads,self.head_dim))
+            multi_head_projection=torch.reshape(proj,(batch_size,seq_length,self.n_heads,self.head_dim))
             proj_reshape.append(multi_head_projection) 
 
         assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
         assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
        
        
-        mh_Q,mh_K,mh_V=proj_reshape #Per proj multi-heads tensors
+        return proj_reshape #Per proj multi-heads tensors
         
+        
+    def forward(self,embeddings:torch.tensor):
+        
+
+        """ I. Q, K, V Projection """
+        mh_Q,mh_K,mh_V=self.qkv_projection_helper(embeddings=embeddings)
         
         """ II. Attention Compute """
         

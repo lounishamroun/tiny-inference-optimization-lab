@@ -71,3 +71,15 @@ for i in range(n_heads):
 
 ```
 
+## Code Modularity 
+
+We should have a clean separation of concerns, hence our code needs to be cleanly modularized with clean contracts.
+
+- 1 Class handling 
+
+## Transformer block
+
+### Mistakes - Transformer block
+
+I made the mistakes
+

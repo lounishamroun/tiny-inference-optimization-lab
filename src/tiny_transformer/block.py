@@ -34,7 +34,7 @@ _D_EXPANSION=3072
 """ 
 Returns an array of [Q,K,V] matrices each of shape [d_model,d_model] with randomly initialized parameters.
 """
-class QKVProjection(nn.Module):
+class CausalSelfAttention(nn.Module):
     def __init__(self,d_model,n_heads,head_dim):
         super().__init__()
         self.n_heads=n_heads
@@ -43,6 +43,7 @@ class QKVProjection(nn.Module):
         self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
         
     def forward(self,embeddings:torch.tensor):
@@ -55,6 +56,7 @@ class QKVProjection(nn.Module):
         Q=self.Qw(embeddings)
         K=self.Kw(embeddings)
         V=self.Vw(embeddings)
+        
         
         proj_reshape=[]
         for proj in [Q,K,V]:   
@@ -135,6 +137,7 @@ class QKVProjection(nn.Module):
         # [B, H, T, Dh] -> [B, T, H, Dh] -> [B, T, D]
         attention_matrix = torch.movedim(attention_matrix, (1, 2), (2, 1))
         attention_matrix = attention_matrix.reshape(batch_size, seq_length, self.d_model)
+        attention_matrix=self.final_projection(attention_matrix)
 
         assert attention_matrix.shape == torch.Size([batch_size, seq_length, self.d_model])
 
@@ -182,17 +185,18 @@ class TinyDecoderBlock(nn.Module):
         self.n_heads=n_heads
         self.head_dim=head_dim
         self.d_expansion=d_expansion
-        self.layer_norm=nn.LayerNorm(normalized_shape=self.d_model)
-        self.attention=QKVProjection(d_model=self.d_model,n_heads=self.n_heads,head_dim=self.head_dim)
+        self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
+        self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_expansion)
+        self.attention=CausalSelfAttention(d_model=self.d_model,n_heads=self.n_heads,head_dim=self.head_dim)
         self.mlp=FeedForward(d_model=self.d_model,d_expansion=self.d_expansion)        
         
     def forward(self,embeddings):
         """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
         pre_attention_residual=embeddings
-        embeddings=self.layer_norm(embeddings)
+        embeddings=self.layer_norm_1(embeddings)
         attention=self.attention(embeddings=embeddings)
         pre_mlp_residual=attention+pre_attention_residual
-        attention=self.layer_norm(pre_mlp_residual)
+        attention=self.layer_norm_2(pre_mlp_residual)
         post_mlp=self.mlp(attention)
         output=pre_mlp_residual+post_mlp
         return output

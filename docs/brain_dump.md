@@ -66,4 +66,6 @@ def tokenize_text(INPUT_TEXT) and def ids_to_gpt2_input_embeddings(token_ids,mod
 
 So that I directly have a text to embedding function which output will be directly fed to the transformer.
 
-I think its even better to create a dedicated EmbeddingMap class in a seperate module
+I think its even better to create a dedicated EmbeddingMap class in a seperate module and later import this class.
+
+I also decided to merge `multi_head_qkv_proj` and `multi_head_proj` in order to have a full on Q,K,V to multi head Q,K,V reshaping.

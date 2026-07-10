@@ -39,10 +39,10 @@ class CausalSelfAttention(nn.Module):
         self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         
-    def qkv_projection_helper(self,embeddings):
+    def _qkv_projection_helper(self,embeddings):
         
-        batch_size=embeddings.shape[0]
-        seq_length=embeddings.shape[1]
+        self.batch_size=embeddings.shape[0]
+        self.seq_length=embeddings.shape[1]
         
         Q=self.Qw(embeddings)
         K=self.Kw(embeddings)
@@ -50,10 +50,9 @@ class CausalSelfAttention(nn.Module):
         
         proj_reshape=[]
         for proj in [Q,K,V]:   
-            B,T,d_model=embeddings.shape
             assert self.n_heads*self.head_dim==d_model,f"Can't reshape model dimension, model dimension = {self.n_heads*self.head_dim} => n_head x head_dim must be equal to d_model"
             """ Multi-Head reshape """
-            multi_head_projection=torch.reshape(proj,(batch_size,seq_length,self.n_heads,self.head_dim))
+            multi_head_projection=torch.reshape(proj,(self.batch_size,self.seq_length,self.n_heads,self.head_dim))
             proj_reshape.append(multi_head_projection) 
 
         assert len(proj_reshape)==3, f"Tuple must contain 3 tensors not {len(proj_reshape)}"
@@ -61,17 +60,10 @@ class CausalSelfAttention(nn.Module):
        
        
         return proj_reshape #Per proj multi-heads tensors
-        
-        
-    def forward(self,embeddings:torch.tensor):
-        
-
-        """ I. Q, K, V Projection """
-        mh_Q,mh_K,mh_V=self.qkv_projection_helper(embeddings=embeddings)
-        
-        """ II. Attention Compute """
-        
+    
+    def _causal_attention_helper(self,multi_head_proj):
         m = nn.Softmax(dim=-1)
+        mh_Q,mh_K,mh_V = multi_head_proj
 
         # Q, K, V initially: [B, T, H, Dh]
         # Move to attention-friendly layout.
@@ -79,22 +71,22 @@ class CausalSelfAttention(nn.Module):
         mh_K = torch.movedim(mh_K, (1, 2), (2, 1))  # [B, H, T, Dh]
         mh_V = torch.movedim(mh_V, (1, 2), (2, 1))  # [B, H, T, Dh]
 
-        assert mh_Q.shape == torch.Size([batch_size, self.n_heads, seq_length, self.head_dim])
-        assert mh_K.shape == torch.Size([batch_size, self.n_heads, seq_length, self.head_dim])
-        assert mh_V.shape == torch.Size([batch_size, self.n_heads, seq_length, self.head_dim])
+        assert mh_Q.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.head_dim])
+        assert mh_K.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.head_dim])
+        assert mh_V.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.head_dim])
 
         # Attention scores: [B, H, T, Dh] @ [B, H, Dh, T] -> [B, H, T, T]
         scores = mh_Q @ mh_K.transpose(-2, -1)
 
  
-        assert scores.shape == torch.Size([batch_size, self.n_heads, seq_length, seq_length])
+        assert scores.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.seq_length])
 
         scaled_scores = scores / math.sqrt(self.head_dim)
 
         # Causal mask: True where key position j is in the future of query position i.
         # Shape: [T, T], broadcastable to [B, H, T, T]
         mask = torch.ones(
-            (seq_length, seq_length),
+            (self.seq_length, self.seq_length),
             device=scaled_scores.device,
             dtype=torch.bool,
         )
@@ -106,7 +98,7 @@ class CausalSelfAttention(nn.Module):
         # Softmax over key-token dimension.
         softmax_scores = m(masked_scores)
 
-        assert softmax_scores.shape == torch.Size([batch_size, self.n_heads, seq_length, seq_length])
+        assert softmax_scores.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.seq_length])
 
         # Check each attention row sums to 1.
         row_sums = softmax_scores.sum(dim=-1)
@@ -127,21 +119,34 @@ class CausalSelfAttention(nn.Module):
         # Attention output: [B, H, T, T] @ [B, H, T, Dh] -> [B, H, T, Dh]
         attention_matrix = softmax_scores @ mh_V
 
-        assert attention_matrix.shape == torch.Size([batch_size, self.n_heads, seq_length, self.head_dim])
+        assert attention_matrix.shape == torch.Size([self.batch_size, self.n_heads, self.seq_length, self.head_dim])
 
         # Merge heads:
         # [B, H, T, Dh] -> [B, T, H, Dh] -> [B, T, D]
         attention_matrix = torch.movedim(attention_matrix, (1, 2), (2, 1))
-        attention_matrix = attention_matrix.reshape(batch_size, seq_length, self.d_model)
+        attention_matrix = attention_matrix.reshape(self.batch_size, self.seq_length, self.d_model)
         attention_matrix=self.final_projection(attention_matrix)
 
-        assert attention_matrix.shape == torch.Size([batch_size, seq_length, self.d_model])
+        assert attention_matrix.shape == torch.Size([self.batch_size, self.seq_length, self.d_model])
 
         # Sanity check for future optimization.
         if not attention_matrix.is_contiguous():
             warnings.warn("attention_matrix is not contiguous", UserWarning)
 
         return attention_matrix
+        
+        
+    def forward(self,embeddings:torch.tensor):
+
+        """ I/ Q, K, V Projection """
+        multi_head_proj=self._qkv_projection_helper(embeddings=embeddings)
+        
+        """ II/ Attention Compute """
+        causal_attention=self._causal_attention_helper(multi_head_proj)
+        
+        return causal_attention
+        
+        
     
 """
 Input : Merged heads of shape => [B, T, d_model]

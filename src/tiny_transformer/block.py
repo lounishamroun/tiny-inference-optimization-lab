@@ -176,26 +176,26 @@ Output : Embedding matrix of shape => [batch_size,seq_length,d_model]
 """
 class TinyDecoderBlock(nn.Module):
 
-    def __init__(self,batch_size,seq_length,d_model,ff):
+    def __init__(self,d_expansion,d_model,n_heads,head_dim):
         super().__init__()
-        self.batch_size=batch_size
-        self.seq_length=seq_length
         self.d_model=d_model
-        self.dropout=nn.Dropout(p=0.1)
-        self.layer_norm=nn.LayerNorm(normalized_shape=(self.batch_size,self.seq_length,self.seq_length))
-    
-    def forward(self,embeddings,attention_matrix):
-        embeddings=self.dropout(embeddings)
-        pre_proj_residual=embeddings
-        attention_matrix=self.dropout(attention_matrix)
-        attention_w_residual=attention_matrix+pre_proj_residual
-        attention_residual=attention_w_residual
-        ff_w_residual=ff+attention_residual
-        ff_w_residual_norm=self.layer_norm(ff_w_residual)
-        #adding softmax
+        self.n_heads=n_heads
+        self.head_dim=head_dim
+        self.d_expansion=d_expansion
+        self.layer_norm=nn.LayerNorm(normalized_shape=self.d_model)
+        self.attention=QKVProjection(d_model=self.d_model,n_heads=self.n_heads,head_dim=self.head_dim)
+        self.mlp=FeedForward(d_model=self.d_model,d_expansion=self.d_expansion)        
         
-        #jump the feedforward network
-        
+    def forward(self,embeddings):
+        """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
+        pre_attention_residual=embeddings
+        embeddings=self.layer_norm(embeddings)
+        attention=self.attention(embeddings=embeddings)
+        pre_mlp_residual=attention+pre_attention_residual
+        attention=self.layer_norm(attention)
+        post_mlp=self.mlp(attention)
+        output=pre_mlp_residual+post_mlp
+        return output
         
 
 if __name__=="__main__":
@@ -208,18 +208,16 @@ if __name__=="__main__":
     embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
     d_model=embeddings.shape[-1]
     
-    """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
-    attention=QKVProjection(d_model=d_model,n_heads=_N_HEADS,head_dim=_HEAD_DIM).to(DEVICE).forward(embeddings=embeddings)
-    
-    """MLP | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
-    ff=FeedForward(d_model=d_model,d_expansion=_D_EXPANSION).to(DEVICE).forward(attention)
-    
-    
-    
-    """ Final Main Structure 
-    block = TinyDecoderBlock(embeddings)
-    y = block(x)
+    """ 
+    Transformer block
+    Output shape => [B,T,d_model] 
     """
+    block=TinyDecoderBlock(d_expansion=_D_EXPANSION,
+                     d_model=d_model,
+                     n_heads=_N_HEADS,
+                     head_dim=_HEAD_DIM).to(DEVICE)
+    
+    block_output=block(embeddings)
 
  
     

@@ -11,10 +11,10 @@ class TokenToEmbedding():
         self.device=device
     # We'll use a pre-trained tokenizer since we'll use quite generic data
         """ Text to Token ids"""
-        tokenizer = AutoTokenizer.from_pretrained(
+        self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path="openai-community/gpt2",
             )
-        token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
+        token_ids=self.tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
         self.token_ids=token_ids.to(self.device)
         
         """ Token ids to GPT-2 compatible embedding"""
@@ -41,6 +41,10 @@ class TokenToEmbedding():
         full_embeddings=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
         assert full_embeddings.shape == torch.Size([batch_size, seq_length, d_model]), f'Shape is {batch_size, seq_length, d_model}'
         return full_embeddings
+
+    def decode(self,token_id):
+        token=self.tokenizer.decode(token_id)
+        return token
 
 if __name__=="__main__":
     from . import data_loader

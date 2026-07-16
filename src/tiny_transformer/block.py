@@ -16,7 +16,7 @@ Decoder (GPT STYLE)
 from . import data_loader,embeddings_map
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
@@ -146,8 +146,6 @@ class CausalSelfAttention(nn.Module):
         
         return causal_attention
         
-        
-    
 """
 Input : Merged heads of shape => [B, T, d_model]
 """
@@ -210,12 +208,15 @@ if __name__=="__main__":
     Output shape => [B,T,d_model] 
     """
     INPUT_TEXT = data_loader.return_text("data/text.txt")
+    
+    """ Retreiving the original GPT-2 embedding lookup table"""
+    model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
+    embedding_lookup_table=model.get_input_embeddings().weight.detach().clone()
+    
+    """ Retreiving embeddings of our text sequence"""
     embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
     d_model=embeddings.shape[-1]
-    """ 
-    Transformer block
-    Output shape => [B,T,d_model] 
-    """
+
     
     block=TinyDecoderBlock(
                      d_expansion=3072,
@@ -224,6 +225,12 @@ if __name__=="__main__":
     
     block_output=block(embeddings)
 
+    """
+    print(f'{block_output.shape}@{embedding_lookup_table.shape}')
+    #next_score=block_output@gpt2_dict_embeddings
+    """
+
+    
  
     
     

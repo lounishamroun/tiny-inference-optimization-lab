@@ -40,7 +40,7 @@ class TokenToEmbedding():
         #### Input Embedding ####
         full_embeddings=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
         assert full_embeddings.shape == torch.Size([batch_size, seq_length, d_model]), f'Shape is {batch_size, seq_length, d_model}'
-        return full_embeddings 
+        return full_embeddings
 
 if __name__=="__main__":
     from . import data_loader

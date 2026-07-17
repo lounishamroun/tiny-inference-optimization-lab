@@ -71,15 +71,27 @@ for i in range(n_heads):
 
 ```
 
-## Code Modularity 
-
-We should have a clean separation of concerns, hence our code needs to be cleanly modularized with clean contracts.
-
-- 1 Class handling 
 
 ## Transformer block
 
-### Mistakes - Transformer block
+Initially, we randomly initialized the parameters (weights). However, we should use the pretrained weights from the GPT-2 architecture; otherwise, our results will be meaningless.
 
-I made the mistakes
+```python
+self.Qw = nn.Linear(...)
+self.Kw = nn.Linear(...)
+self.Vw = nn.Linear(...)
+self.final_projection = nn.Linear(...)
+
+self.up_proj = nn.Linear(...)
+self.down_proj = nn.Linear(...)
+```
+
+Hence, the next predicted word makes no sense.
+
+
+```text
+My favourite italian food is called `abouts`
+```
+
+Which is obviously wrong.
 

@@ -50,7 +50,7 @@ class CausalSelfAttention(nn.Module):
         
         proj_reshape=[]
         for proj in [Q,K,V]:   
-            assert self.n_heads*self.head_dim==d_model,f"Can't reshape model dimension, model dimension = {self.n_heads*self.head_dim} => n_head x head_dim must be equal to d_model"
+            assert self.n_heads*self.head_dim==self.d_model,f"Can't reshape model dimension, model dimension = {self.n_heads*self.head_dim} => n_head x head_dim must be equal to d_model"
             """ Multi-Head reshape """
             multi_head_projection=torch.reshape(proj,(self.batch_size,self.seq_length,self.n_heads,self.head_dim))
             proj_reshape.append(multi_head_projection) 
@@ -214,7 +214,8 @@ if __name__=="__main__":
     embedding_lookup_table=model.get_input_embeddings().weight.detach().clone().T.to(DEVICE)
     
     """ Retreiving embeddings of our text sequence"""
-    embeddings=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE).map_embeddings()
+    tokenizer=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE)
+    embeddings=tokenizer.map_embeddings().detach()
     d_model=embeddings.shape[-1]
 
     
@@ -232,7 +233,17 @@ if __name__=="__main__":
     next_score=block_output[:,-1,:]@embedding_lookup_table
     final_soft=nn.Softmax(dim=-1)
     final_out=final_soft(next_score)
-    final_out=torch.sort(final_out,dim=-1,descending=True).indices[0][0].item() #index of the maximum value
+    final_out_index=torch.sort(final_out,dim=-1,descending=True).indices[0][0].item() #index of the maximum value
+    
+    final_out_value=torch.sort(final_out,dim=-1,descending=True).values[0][0].item() #index of the maximum value
+    print(f' Max value in sorting is {final_out_value}| Max probability is : {final_out.max()}')
+    
+ 
+    next_word=tokenizer.decode(final_out_index)
+    
+    print(f'{INPUT_TEXT} {next_word} ')
+    
+    #token_ids=tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
 
     
  

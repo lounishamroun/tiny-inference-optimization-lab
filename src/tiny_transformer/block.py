@@ -48,7 +48,7 @@ class CausalSelfAttention(nn.Module):
         """Final QKV projection"""
         self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
         with torch.no_grad():
-            self.final_projection.weight.copy_(qkv_final_proj_wgt)
+            self.final_projection.weight.copy_(qkv_final_proj_wgt.T)
             self.final_projection.bias.copy_(qkv_final_proj_bias)
         
         
@@ -56,7 +56,7 @@ class CausalSelfAttention(nn.Module):
             
         """ Unified projection """
         qkv=self.qkv_proj(embeddings)
-        qkv=torch.reshape(qkv, (1,7,3,768))
+        qkv=torch.reshape(qkv, (batch_size,seq_length,3,self.d_model))
         print(
             f'{qkv.shape}'
         )

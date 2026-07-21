@@ -173,7 +173,7 @@ class CausalSelfAttention(nn.Module):
 Input : Merged heads of shape => [B, T, d_model]
 """
 class FeedForward(nn.Module):
-    def __init__(self,d_model,d_expansion,gpt2_up_proj_wgt,gpt2_up_proj_bias,gpt2_down_proj_wgt,gpt2_down_proj_bias):
+    def __init__(self,d_model,d_expansion,gpt2_up_proj_wgt,gpt2_up_proj_bias,gpt2_down_proj_wgt,gpt2_down_proj_bias,new_gelu):
         super().__init__()
         self.d_expansion=d_expansion
         self.up_proj=nn.Linear(in_features=d_model,out_features=self.d_expansion)
@@ -185,7 +185,7 @@ class FeedForward(nn.Module):
             self.up_proj.bias.copy_(gpt2_up_proj_bias)
         
         """Activation"""
-        self.activation=nn.GELU()
+        self.activation=new_gelu
         
         """Setting parameters """
         self.down_proj=nn.Linear(in_features=d_expansion,out_features=d_model)
@@ -221,6 +221,9 @@ Output : Embedding matrix of shape => [batch_size,seq_length,d_model]
 """
 def gpt2_parameter_load_helper(model):
 
+
+    new_gelu=model.get_submodule("transformer.h.0.mlp.act")
+    
     """Up Linear projection"""
     up_proj_wgt=model.get_parameter("transformer.h.0.mlp.c_fc.weight") 
     up_proj_bias=model.get_parameter("transformer.h.0.mlp.c_fc.bias")     
@@ -245,7 +248,7 @@ def gpt2_parameter_load_helper(model):
     l_norm2_wgt=model.get_parameter("transformer.h.0.ln_2.weight")
     l_norm2_bias=model.get_parameter("transformer.h.0.ln_2.bias")
      
-    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias]
+    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu]
     
 
 class TinyDecoderBlock(nn.Module):
@@ -255,7 +258,7 @@ class TinyDecoderBlock(nn.Module):
         
         """Retreiving parameters from GPT-2 model"""
         self.gpt2_params=gpt2_params
-        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias=self.gpt2_params
+        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu=self.gpt2_params
         
         self.d_model=d_model
         self.head_dim=d_model//n_heads
@@ -278,7 +281,7 @@ class TinyDecoderBlock(nn.Module):
                                            qkv_proj_wgt=qkv_proj_wgt,
                                            qkv_proj_bias=qkv_proj_bias,
                                            qkv_final_proj_wgt=qkv_final_proj_wgt,
-                                           qkv_final_proj_bias=qkv_final_proj_bias
+                                           qkv_final_proj_bias=qkv_final_proj_bias,
                                            )
         
         self.mlp=FeedForward(d_model=self.d_model,
@@ -286,7 +289,9 @@ class TinyDecoderBlock(nn.Module):
                              gpt2_up_proj_wgt=up_proj_wgt,
                              gpt2_up_proj_bias=up_proj_bias,
                              gpt2_down_proj_wgt=down_proj_wgt,
-                             gpt2_down_proj_bias=down_proj_bias)        
+                             gpt2_down_proj_bias=down_proj_bias,
+                             new_gelu=new_gelu
+                             )        
         
     def forward(self,embeddings):
         """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """

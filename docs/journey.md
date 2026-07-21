@@ -74,6 +74,15 @@ for i in range(n_heads):
 
 ## Transformer block
 
+### Mixing info from previous tokens
+
+
+```python
+attention_matrix = softmax_scores @ mh_V
+```
+
+### Random Param Init
+
 Initially, we randomly initialized the parameters (weights). However, we should use the pretrained weights from the GPT-2 architecture; otherwise, our results will be meaningless.
 
 ```python
@@ -88,10 +97,24 @@ self.down_proj = nn.Linear(...)
 
 Hence, the next predicted word makes no sense.
 
-
 ```text
 My favourite italian food is called `abouts`
 ```
 
 Which is obviously wrong.
+
+We need to use original GPT 2 parameters:
+
+```python
+for name, param in model.named_parameters():
+    print(f'Name: {name} of shape :  {model.get_parameter(name).shape}')
+```
+```text
+Name: transformer.wte.weight of shape :  torch.Size([50257, 768])
+Name: transformer.wpe.weight of shape :  torch.Size([1024, 768])
+Name: transformer.h.0.ln_1.weight of shape :  torch.Size([768])
+Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
+```
+
+...
 

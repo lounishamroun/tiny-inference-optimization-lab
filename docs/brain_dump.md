@@ -1,71 +1,43 @@
+Ok so I spoted that here (c_attn): Conv1D(nf=2304, nx=768), we have 2304 = 3*768.
 
-Constructive feedback and critic on ingineer intuition, technical choices etc...
+So I guess it's an inverted linear projection, like the equivalent of doing nn.Linear(768,2304) and I guess later reshape to fit my architecture.
 
-So I started by adding the dropout and outputting the residual:
+So here they seem to be an initial linear projection before qkv projection :
 
-class QKVProjection(nn.Module):
-    def __init__(self,d_model):
-        super().__init__()
-        self.d_model=d_model
-        self.dropout=nn.Dropout(p=0.1)
-        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        
-    def forward(self,x:torch.tensor):
-        x=self.dropout(x)
-        residual=x
-        Q=self.Qw(x)
-        K=self.Kw(x)
-        V=self.Vw(x)
-        
-        return [Q,K,V],residual
+Name: transformer.h.0.ln_1.weight of shape :  torch.Size([768])
+Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
+Name: transformer.h.0.attn.c_attn.weight of shape :  torch.Size([768, 2304])
+Name: transformer.h.0.attn.c_attn.bias of shape :  torch.Size([2304])
 
-I did the same for the final mlp layer by integrating layer norm, like you said, I forgot there was a learnable parameter in this function and I also integrated dropout:
 
-class FeedForward(nn.Module):
-    def __init__(self,residual,d_model,d_expansion):
-        super().__init__()
-        self.residual=residual
-        self.dropout=nn.Dropout(p=0.1)
-        self.augmented=nn.Linear(in_features=d_model,out_features=d_expansion)
-        self.activation=nn.ReLU()
-        self.reduced=nn.Linear(in_features=d_expansion,out_features=d_model)
-        self.layer_norm=nn.LayerNorm(normalized_shape=d_model)
-    
-    def forward(self,x):
-        mlp_input=x
-        layer_norm=self.layer_norm.to(x.device)
-        
-        """ MLP """
-        x=self.dropout(x)
-        x=x+self.residual #residual concat
-        residual=x
-        x=self.augmented(x)
-        x=self.activation(x)
-        x=self.reduced(x)
-        x=layer_norm(x)
-        
-        
-        """ Assertions """
-        assert x.shape == mlp_input.shape #checking invariance.
-        
-        """ Output 
-        MLP forward shape => [batch_size,seq_length,d_model]
-        new residual (unaffected by linear layer) shape => [batch_size,seq_length,d_model] 
-        """
-        return x,residual
+So checking the shape of gpt 2 weights its correct:
 
-However I read your recommendation on managing this the residual and layer norm in another decoder block.
+QKV wgth: torch.Size([768, 2304])
+QKV bias: torch.Size([2304])
 
-So I guess I should do the same for dropout so that we seperate training data with linear ops.
+However we have this error : RuntimeError: The size of tensor a (768) must match the size of tensor b (2304) at non-singleton dimension 1
 
-I will start by merging
+So here we can see that the random weights are stored in inverted, hence lets transpose our gpt 2 weights : Before copy keeping identity: torch.Size([2304, 768])
 
-def tokenize_text(INPUT_TEXT) and def ids_to_gpt2_input_embeddings(token_ids,model)
+Now I should find a way to correctly replace my initial architecturee:
 
-So that I directly have a text to embedding function which output will be directly fed to the transformer.
+ """ Q,K,V projections """
+        Q=self.Qw(embeddings)
+        K=self.Kw(embeddings)
+        V=self.Vw(embeddings)
 
-I think its even better to create a dedicated EmbeddingMap class in a seperate module and later import this class.
+Since we don't have anymore seperated matrices
 
-I also decided to merge `multi_head_qkv_proj` and `multi_head_proj` in order to have a full on Q,K,V to multi head Q,K,V reshaping.
+Ok so we have output shape : 
+
+qkv=self.qkv_proj(embeddings) => torch.Size([1, 7, 2304]), I think we should reshape in => torch.Size([1, 7, , 3 , 768])
+
+So it becomes like that : 
+
+qkv=self.qkv_proj(embeddings)
+qkv=torch.reshape(qkv, (1,7,3,768))
+
+By doing that we retreive our original shape for all of the 3 qkv matrices:
+
+""" Q,K,V projections """
+self.Qw,self.Kw,self.Vw=qkv[:,:,0,:],qkv[:,:,1,:],qkv[:,:,2,:]

@@ -29,22 +29,41 @@ else:
         
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self,d_model,n_heads,head_dim):
+    def __init__(self,d_model,n_heads,head_dim,qkv_proj_wgt,qkv_proj_bias,qkv_final_proj_wgt,qkv_final_proj_bias):
         super().__init__()
         self.n_heads=n_heads
         self.head_dim=head_dim
         self.d_model=d_model
-        self.Qw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        self.Kw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        self.Vw=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+    
+        
+        
+        """Injecting GPT-2 parameters into the QKV projection layer"""
+        self.qkv_proj=nn.Linear(in_features=self.d_model,out_features=3*self.d_model)
+        print(f'QKV wgth: {qkv_proj_wgt.shape}')
+        print(f'QKV bias: {qkv_proj_bias.shape}')
+        with torch.no_grad():
+            self.qkv_proj.weight.copy_(qkv_proj_wgt.T) #keep the same identity
+            self.qkv_proj.bias.copy_(qkv_proj_bias) 
+        
+        """Final QKV projection"""
         self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
+        with torch.no_grad():
+            self.final_projection.weight.copy_(qkv_final_proj_wgt)
+            self.final_projection.bias.copy_(qkv_final_proj_bias)
+        
         
     def _qkv_projection_helper(self,embeddings,batch_size,seq_length):
             
+        """ Unified projection """
+        qkv=self.qkv_proj(embeddings)
+        qkv=torch.reshape(qkv, (1,7,3,768))
+        print(
+            f'{qkv.shape}'
+        )
+        #torch.Size([1, 7, 2304])        
         """ Q,K,V projections """
-        Q=self.Qw(embeddings)
-        K=self.Kw(embeddings)
-        V=self.Vw(embeddings)
+        Q,K,V=qkv[:,:,0,:],qkv[:,:,1,:],qkv[:,:,2,:]
+    
         
         proj_reshape=[]
         for proj in [Q,K,V]:  #for each projection
@@ -154,34 +173,28 @@ class CausalSelfAttention(nn.Module):
 Input : Merged heads of shape => [B, T, d_model]
 """
 class FeedForward(nn.Module):
-    def __init__(self,d_model,d_expansion,up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias):
+    def __init__(self,d_model,d_expansion,gpt2_up_proj_wgt,gpt2_up_proj_bias,gpt2_down_proj_wgt,gpt2_down_proj_bias):
         super().__init__()
         self.d_expansion=d_expansion
         self.up_proj=nn.Linear(in_features=d_model,out_features=self.d_expansion)
-        self.grad_fn=up_proj_wgt
-        self.up_proj_wgt=up_proj_wgt.detach().T
-        self.up_proj_wgt=nn.Parameter(self.up_proj_wgt)
-        self.up_proj_bias=up_proj_bias
+
 
         """Setting GPT-2 parameters to our up_proj linear layer"""
-        self.up_proj.weight=self.up_proj_wgt
-        self.up_proj.bias=self.up_proj_bias
+        with torch.no_grad():
+            self.up_proj.weight.copy_(gpt2_up_proj_wgt.T)
+            self.up_proj.bias.copy_(gpt2_up_proj_bias)
         
         """Activation"""
         self.activation=nn.GELU()
         
         """Setting parameters """
         self.down_proj=nn.Linear(in_features=d_expansion,out_features=d_model)
-        self.down_proj_wgt=down_proj_wgt.detach().T #[3072, 768]
-        print(f'Down proj weight shape {self.down_proj_wgt.shape}')
-        self.down_proj_wgt=nn.Parameter(self.down_proj_wgt)
-        print(f'Down proj weight shape {self.down_proj_wgt.shape}')
-        self.down_proj_bias=down_proj_bias
-        print(f'Down proj bias shape {self.down_proj_bias.shape}')
+
         
         """Setting GPT-2 parameters to our down_proj linear layer"""
-        self.down_proj.weight=self.down_proj_wgt
-        self.down_proj.bias=self.down_proj_bias
+        with torch.no_grad():
+            self.down_proj.weight.copy_(gpt2_down_proj_wgt.T)
+            self.down_proj.bias.copy_(gpt2_down_proj_bias)
         
         
     
@@ -206,34 +219,74 @@ INPUT : Embeddings
 Output : Embedding matrix of shape => [batch_size,seq_length,d_model] 
 
 """
+def gpt2_parameter_load_helper(model):
+
+    """Up Linear projection"""
+    up_proj_wgt=model.get_parameter("transformer.h.0.mlp.c_fc.weight") 
+    up_proj_bias=model.get_parameter("transformer.h.0.mlp.c_fc.bias")     
+    
+    """Down Linear projection"""
+    down_proj_wgt=model.get_parameter("transformer.h.0.mlp.c_proj.weight") 
+    down_proj_bias=model.get_parameter("transformer.h.0.mlp.c_proj.bias")
+    
+    """QKV projection"""
+    qkv_proj_wgt=model.get_parameter("transformer.h.0.attn.c_attn.weight")
+    qkv_proj_bias=model.get_parameter("transformer.h.0.attn.c_attn.bias")
+    
+    """QKV Final Projection"""
+    qkv_final_proj_wgt=model.get_parameter("transformer.h.0.attn.c_proj.weight")
+    qkv_final_proj_bias=model.get_parameter("transformer.h.0.attn.c_proj.bias") 
+    
+    """Layer Norm 1"""
+    l_norm_wgt=model.get_parameter("transformer.h.0.ln_1.weight")
+    l_norm_bias=model.get_parameter("transformer.h.0.ln_1.bias")
+    
+    """Layer Norm 2"""
+    l_norm2_wgt=model.get_parameter("transformer.h.0.ln_2.weight")
+    l_norm2_bias=model.get_parameter("transformer.h.0.ln_2.bias")
+     
+    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias]
+    
+
 class TinyDecoderBlock(nn.Module):
 
-    def __init__(self,d_expansion,d_model,n_heads,model):
+    def __init__(self,d_expansion,d_model,n_heads,gpt2_params):
         super().__init__()
-        self.model=model
         
         """Retreiving parameters from GPT-2 model"""
-        #up projection
-        self.up_proj_wgt=self.model.get_parameter("transformer.h.0.mlp.c_fc.weight") #torch.Size([768, 3072])
-        self.up_proj_bias=self.model.get_parameter("transformer.h.0.mlp.c_fc.bias") #torch.Size([3072])
-        
-        #down projection
-        self.down_proj_wgt=self.model.get_parameter("transformer.h.0.mlp.c_proj.weight") #torch.Size([3072, 768])
-        self.down_proj_bias=self.model.get_parameter("transformer.h.0.mlp.c_proj.bias") #torch.Size([768])
+        self.gpt2_params=gpt2_params
+        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias=self.gpt2_params
         
         self.d_model=d_model
         self.head_dim=d_model//n_heads
         self.n_heads=n_heads
         self.d_expansion=d_expansion
         self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
+        
+        with torch.no_grad():
+            self.layer_norm_1.weight.copy_(l_norm_wgt)
+            self.layer_norm_1.bias.copy_(l_norm_bias)
+        
         self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model)
-        self.attention=CausalSelfAttention(d_model=self.d_model,n_heads=self.n_heads,head_dim=self.head_dim)
+        with torch.no_grad():
+            self.layer_norm_2.weight.copy_(l_norm2_wgt)
+            self.layer_norm_2.bias.copy_(l_norm2_bias)
+        
+        self.attention=CausalSelfAttention(d_model=self.d_model,
+                                           n_heads=self.n_heads,
+                                           head_dim=self.head_dim,
+                                           qkv_proj_wgt=qkv_proj_wgt,
+                                           qkv_proj_bias=qkv_proj_bias,
+                                           qkv_final_proj_wgt=qkv_final_proj_wgt,
+                                           qkv_final_proj_bias=qkv_final_proj_bias
+                                           )
+        
         self.mlp=FeedForward(d_model=self.d_model,
                              d_expansion=self.d_expansion,
-                             up_proj_wgt=self.up_proj_wgt,
-                             up_proj_bias=self.up_proj_bias,
-                             down_proj_wgt=self.down_proj_wgt,
-                             down_proj_bias=self.down_proj_bias)        
+                             gpt2_up_proj_wgt=up_proj_wgt,
+                             gpt2_up_proj_bias=up_proj_bias,
+                             gpt2_down_proj_wgt=down_proj_wgt,
+                             gpt2_down_proj_bias=down_proj_bias)        
         
     def forward(self,embeddings):
         """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
@@ -257,19 +310,20 @@ if __name__=="__main__":
     
     """ Retreiving the original GPT-2 embedding lookup table"""
     model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
+
     embedding_lookup_table=model.get_input_embeddings().weight.detach().clone().T.to(DEVICE)
     
     """ Retreiving embeddings of our text sequence"""
     tokenizer=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE)
     embeddings=tokenizer.map_embeddings().detach()
-    d_model=embeddings.shape[-1]
 
+    gpt_2_params=gpt2_parameter_load_helper(model)
     
     block=TinyDecoderBlock(
                      d_expansion=3072,
-                     d_model=d_model,
+                     d_model=embeddings.shape[-1],
                      n_heads=12,
-                     model=model
+                     gpt2_params=gpt_2_params,
                      ).to(DEVICE)
     
     block_output=block(embeddings)

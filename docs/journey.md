@@ -118,3 +118,10 @@ Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
 
 ...
 
+## To put in the article:
+
+```python
+source_model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
+source_model.eval() #to ensure deterministic results
+```
+We shouldn't forget to set the source model in evaluation mode, to ensure deterministic result, some mechanisms such as dropout could interefer with the output.

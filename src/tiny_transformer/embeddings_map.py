@@ -7,8 +7,9 @@ import math
 import warnings
 
 class TokenToEmbedding():
-    def __init__(self,INPUT_TEXT,device=None) -> None:
+    def __init__(self,INPUT_TEXT,model,device=None) -> None:
         self.device=device
+        self.model=model
     # We'll use a pre-trained tokenizer since we'll use quite generic data
         """ Text to Token ids"""
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -18,14 +19,14 @@ class TokenToEmbedding():
         self.token_ids=token_ids.to(self.device)
         
         """ Token ids to GPT-2 compatible embedding"""
-        self.global_model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
-        self.global_model=self.global_model.to(self.device)
+        self.model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
+        self.model=self.model.to(self.device)
         
     def map_embeddings(self):
-        self.global_model.eval()
+        self.model.eval()
         batch_size, seq_length = self.token_ids.shape 
-        token_embedding_module = self.global_model.wte
-        position_embedding_module = self.global_model.wpe
+        token_embedding_module = self.model.wte
+        position_embedding_module = self.model.wpe
         
         #### Token Embeddings ####
         tok_embeddings=token_embedding_module(self.token_ids)  # Generates word embeddings for our sequence
@@ -45,9 +46,3 @@ class TokenToEmbedding():
     def decode(self,token_id):
         token=self.tokenizer.decode(token_id)
         return token
-
-if __name__=="__main__":
-    from . import data_loader
-    INPUT_TEXT = data_loader.return_text("data/text.txt")
-    embeddings=TokenToEmbedding(INPUT_TEXT,device="cuda:0").map_embeddings()
-    print(embeddings.shape)

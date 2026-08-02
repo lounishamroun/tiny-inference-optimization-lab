@@ -13,7 +13,8 @@ Decoder (GPT STYLE)
         dropout probability = 0.1
 """
 
-from . import data_loader,embeddings_map
+from . import data_loader,embeddings_map,get_model_param
+from .get_model_param import gpt2_parameter_load_helper
 import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
@@ -219,36 +220,7 @@ INPUT : Embeddings
 Output : Embedding matrix of shape => [batch_size,seq_length,d_model] 
 
 """
-def gpt2_parameter_load_helper(model):
 
-
-    new_gelu=model.get_submodule("transformer.h.0.mlp.act")
-    
-    """Up Linear projection"""
-    up_proj_wgt=model.get_parameter("transformer.h.0.mlp.c_fc.weight") 
-    up_proj_bias=model.get_parameter("transformer.h.0.mlp.c_fc.bias")     
-    
-    """Down Linear projection"""
-    down_proj_wgt=model.get_parameter("transformer.h.0.mlp.c_proj.weight") 
-    down_proj_bias=model.get_parameter("transformer.h.0.mlp.c_proj.bias")
-    
-    """QKV projection"""
-    qkv_proj_wgt=model.get_parameter("transformer.h.0.attn.c_attn.weight")
-    qkv_proj_bias=model.get_parameter("transformer.h.0.attn.c_attn.bias")
-    
-    """QKV Final Projection"""
-    qkv_final_proj_wgt=model.get_parameter("transformer.h.0.attn.c_proj.weight")
-    qkv_final_proj_bias=model.get_parameter("transformer.h.0.attn.c_proj.bias") 
-    
-    """Layer Norm 1"""
-    l_norm_wgt=model.get_parameter("transformer.h.0.ln_1.weight")
-    l_norm_bias=model.get_parameter("transformer.h.0.ln_1.bias")
-    
-    """Layer Norm 2"""
-    l_norm2_wgt=model.get_parameter("transformer.h.0.ln_2.weight")
-    l_norm2_bias=model.get_parameter("transformer.h.0.ln_2.bias")
-     
-    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu]
     
 
 class TinyDecoderBlock(nn.Module):
@@ -315,14 +287,11 @@ if __name__=="__main__":
     
     """ Retreiving the original GPT-2 embedding lookup table"""
     model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-
-    embedding_lookup_table=model.get_input_embeddings().weight.detach().clone().T.to(DEVICE)
     
     """ Retreiving embeddings of our text sequence"""
-    tokenizer=embeddings_map.TokenToEmbedding(INPUT_TEXT,device=DEVICE)
+    tokenizer=embeddings_map.TokenToEmbedding(INPUT_TEXT,model=model,device=DEVICE)
     embeddings=tokenizer.map_embeddings().detach()
-
-    gpt_2_params=gpt2_parameter_load_helper(model)
+    gpt_2_params=get_model_param.gpt2_parameter_load_helper(model)
     
     block=TinyDecoderBlock(
                      d_expansion=3072,

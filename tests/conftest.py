@@ -7,8 +7,6 @@ from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
-
-
     
 @pytest.fixture(scope="session")
 def device():
@@ -22,11 +20,11 @@ def reference_model(device):
     Output shape => [B,T,d_model] 
     """
 
-    source_model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-    source_model = source_model.to(device)
-    source_model.eval() #to ensure deterministic results
+    reference_model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
+    reference_model = reference_model.to(device)
+    reference_model.eval() #to ensure deterministic results
     
-    return source_model
+    return reference_model
 
 @pytest.fixture(scope="session")
 def reference_param(reference_model):
@@ -42,8 +40,7 @@ def input_text():
 
 @pytest.fixture(scope="session")
 def reference_input_embeddings(reference_model,input_text,device):
-    INPUT_TEXT = data_loader.return_text("data/text.txt")
-    
+        
     """ Retreiving embeddings of our text sequence"""
     with torch.inference_mode():
         tokenizer=embeddings_map.TokenToEmbedding(input_text,reference_model,device=device)
@@ -51,9 +48,13 @@ def reference_input_embeddings(reference_model,input_text,device):
     
     return source_input_embeddings
 
+@pytest.fixture(scope="session")
+def get_batch_seq_dim(reference_input_embeddings):
+    batch_size,seq_length,_=reference_input_embeddings.shape
+    return [batch_size,seq_length]
 
 @pytest.fixture(scope="session")
-def custom_model(reference_input_embeddings,device):
+def custom_model(reference_input_embeddings,reference_param,device):
     custom_model=block.TinyDecoderBlock(
                          d_expansion=3072,
                          d_model=reference_input_embeddings.shape[-1],

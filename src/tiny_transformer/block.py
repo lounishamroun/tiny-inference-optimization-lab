@@ -271,8 +271,8 @@ class TinyDecoderBlock(nn.Module):
         embeddings=self.layer_norm_1(embeddings)
         attention=self.attention(embeddings=embeddings)
         pre_mlp_residual=attention+pre_attention_residual
-        attention=self.layer_norm_2(pre_mlp_residual)
-        post_mlp=self.mlp(attention)
+        ln2_output=self.layer_norm_2(pre_mlp_residual)
+        post_mlp=self.mlp(ln2_output)
         output=pre_mlp_residual+post_mlp
         return output
         
@@ -302,8 +302,7 @@ if __name__=="__main__":
     
     block_output=block(embeddings)
     
-    
-    
+
 
     
  

@@ -118,10 +118,16 @@ Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
 
 ...
 
-## To put in the article:
+# To put in the article:
 
 ```python
 source_model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 source_model.eval() #to ensure deterministic results
 ```
 We shouldn't forget to set the source model in evaluation mode, to ensure deterministic result, some mechanisms such as dropout could interefer with the output.
+
+
+Link for param in the conv layer: https://huggingface.co/transformers/v3.1.0/_modules/transformers/modeling_utils.html#Conv1D
+
+
+I made the mistake of writing all the tests at the end, I should've started earlier which would have saved me a lot of time spent debugging. 

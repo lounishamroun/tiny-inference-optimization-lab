@@ -42,7 +42,7 @@ def input_text():
 def reference_input_embeddings(reference_model,input_text,device):
         
     """ Retreiving embeddings of our text sequence"""
-    with torch.inference_mode():
+    with torch.no_grad():
         tokenizer=embeddings_map.TokenToEmbedding(input_text,reference_model,device=device)
         source_input_embeddings=tokenizer.map_embeddings().detach()
     

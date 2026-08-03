@@ -17,14 +17,14 @@ else:
 model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 model=model.to(DEVICE)
 
-custom_model=block.TinyDecoderBlock(
-                    d_expansion=3072,
-                    d_model=reference_input_embeddings.shape[-1],
-                    n_heads=12,
-                    gpt2_params=reference_param,
-                    ).to(device)
 
-print(type(model.transformer.h[0].attn.c_attn.weight))
+        
+""" Retreiving embeddings of our text sequence"""
+with torch.no_grad():
+    tokenizer=embeddings_map.TokenToEmbedding("My favourite Italian food is",model,device="cuda:0")
+    source_input_embeddings=tokenizer.map_embeddings().detach()
 
+attention_module=model.transformer.h[0].attn #droping to the attention class level
 
-custom_model.attention.qkv_proj.bias
+query, key, value = attention_module.c_attn(source_input_embeddings).split(attention_module.split_size, dim=2)
+

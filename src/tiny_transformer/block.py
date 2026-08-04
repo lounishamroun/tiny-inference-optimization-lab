@@ -36,8 +36,6 @@ class CausalSelfAttention(nn.Module):
         self.head_dim=head_dim
         self.d_model=d_model
     
-        
-        
         """Injecting GPT-2 parameters into the QKV projection layer"""
         self.qkv_proj=nn.Linear(in_features=self.d_model,out_features=3*self.d_model)
         print(f'QKV wgth: {qkv_proj_wgt.shape}')
@@ -54,14 +52,19 @@ class CausalSelfAttention(nn.Module):
         
         
     def _qkv_projection_helper(self,embeddings,batch_size,seq_length):
+        """ 
+        Returns Q,K,V matrices
+        [
+            Q shaped [B, T, H, Dh],
+            K shaped [B, T, H, Dh],
+            V shaped [B, T, H, Dh],
+        ]
+        """
             
         """ Unified projection """
-        qkv=self.qkv_proj(embeddings)
+        qkv=self.qkv_proj(embeddings)  #[batch_size,seq_length,d_model] @ [d_model,3*d_model] => Each token has it's QKV weighted matrices.
         qkv=torch.reshape(qkv, (batch_size,seq_length,3,self.d_model))
-        print(
-            f'{qkv.shape}'
-        )
-        #torch.Size([1, 7, 2304])        
+        #e.g: torch.Size([1, 7, 2304]) for a sequence containing 7 tokens.
         """ Q,K,V projections """
         Q,K,V=qkv[:,:,0,:],qkv[:,:,1,:],qkv[:,:,2,:]
     
@@ -79,7 +82,8 @@ class CausalSelfAttention(nn.Module):
         assert proj_reshape[0].shape==proj_reshape[1].shape==proj_reshape[2].shape
        
        
-        return proj_reshape #Per proj multi-heads tensors
+        return proj_reshape #Per proj multi-heads  
+    
     
     def _causal_attention_helper(self,multi_head_proj,batch_size,seq_length):
         m = nn.Softmax(dim=-1)

@@ -29,8 +29,8 @@ class TestAttention():
     custom_model,
     reference_model,
     reference_input_embeddings,
+    reference_block
     ):
-        reference_block = reference_model.transformer.h[0]
 
         with torch.inference_mode():
             # Give both projections the exact same input.
@@ -45,8 +45,7 @@ class TestAttention():
             actual_qkv = custom_model.attention.qkv_proj(
                 normalized_input
             )
-
-        assert expected_qkv.shape == actual_qkv.shape
+        assert expected_qkv.shape == actual_qkv.shape #torch.Size([batch_size, seq_length, d_model*3])
 
         torch.testing.assert_close(
             actual_qkv,
@@ -55,7 +54,16 @@ class TestAttention():
             atol=1e-6,
         )
             
+    def test_split_head_parity(self,custom_model,
+        reference_model,
+        reference_input_embeddings,
+        reference_block):
+        batch_size,seq_length,_=reference_input_embeddings.shape
         
+        with torch.inference_mode():
+            mQ,mK,mV=custom_model.attention._qkv_projection_helper(embeddings=reference_input_embeddings,batch_size=batch_size,seq_length=seq_length)
+       
+        reference_block
     
     def test_attention(self):
         pass

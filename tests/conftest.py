@@ -49,6 +49,11 @@ def reference_input_embeddings(reference_model,input_text,device):
     return source_input_embeddings
 
 @pytest.fixture(scope="session")
+def reference_block(reference_model):
+    reference_block = reference_model.transformer.h[0]
+    return reference_block
+
+@pytest.fixture(scope="session")
 def get_batch_seq_dim(reference_input_embeddings):
     batch_size,seq_length,_=reference_input_embeddings.shape
     return [batch_size,seq_length]

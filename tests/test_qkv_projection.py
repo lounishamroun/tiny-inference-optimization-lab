@@ -25,15 +25,36 @@ class TestAttention():
         assert torch.allclose(src_init_proj_bias.T,cus_init_proj_bias)
     
         
-    def test_qkv_output(self,custom_model,reference_input_embeddings,reference_model):
-        """Extract QKV from our custom model"""
-        batch_size,seq_length,_=reference_input_embeddings.shape
-        with torch.no_grad():
-         custom_attention=custom_model.attention._qkv_projection_helper(reference_input_embeddings,batch_size,seq_length)[0]
-        #torch.Size([1, 5, 3, 768]) shape
-        
-        """Extract QKV from our reference model"""
-        
+    def test_fused_qkv_output(self,
+    custom_model,
+    reference_model,
+    reference_input_embeddings,
+    ):
+        reference_block = reference_model.transformer.h[0]
+
+        with torch.inference_mode():
+            # Give both projections the exact same input.
+            normalized_input = reference_block.ln_1(
+                reference_input_embeddings
+            )
+
+            expected_qkv = reference_block.attn.c_attn(
+                normalized_input
+            )
+
+            actual_qkv = custom_model.attention.qkv_proj(
+                normalized_input
+            )
+
+        assert expected_qkv.shape == actual_qkv.shape
+
+        torch.testing.assert_close(
+            actual_qkv,
+            expected_qkv,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+            
         
     
     def test_attention(self):

@@ -55,15 +55,37 @@ class TestAttention():
         )
             
     def test_split_head_parity(self,custom_model,
-        reference_model,
         reference_input_embeddings,
         reference_block):
         batch_size,seq_length,_=reference_input_embeddings.shape
         
+        normalized_input = reference_block.ln_1(reference_input_embeddings)
+        
+        
         with torch.inference_mode():
-            mQ,mK,mV=custom_model.attention._qkv_projection_helper(embeddings=reference_input_embeddings,batch_size=batch_size,seq_length=seq_length)
-       
-        reference_block
+            mQ,mK,mV=custom_model.attention._qkv_projection_helper(embeddings=normalized_input,batch_size=batch_size,seq_length=seq_length)
+            mQ=mQ.movedim(1,2)
+            mK=mK.movedim(1,2)
+            mV=mV.movedim(1,2)
+            
+            query_states, key_states, value_states = reference_block.attn.c_attn(normalized_input).split(reference_block.attn.split_size, dim=2)
+            shape_kv = (*key_states.shape[:-1], -1, reference_block.attn.head_dim)
+            key_states = key_states.view(shape_kv).transpose(1, 2)
+            value_states = value_states.view(shape_kv).transpose(1, 2)
+            shape_q = (*query_states.shape[:-1], -1, reference_block.attn.head_dim)
+            query_states = query_states.view(shape_q).transpose(1, 2)
+        
+            assert mQ.shape==query_states.shape
+            assert mK.shape==key_states.shape
+            assert mV.shape==value_states.shape
+          
+
+            assert torch.allclose(query_states,mQ,rtol=1e-5,atol=1e-6)
+            assert torch.allclose(key_states,mK,rtol=1e-5,atol=1e-6)        
+            assert torch.allclose(value_states,mV,rtol=1e-5,atol=1e-6)   
+            
+
+        
     
     def test_attention(self):
         pass

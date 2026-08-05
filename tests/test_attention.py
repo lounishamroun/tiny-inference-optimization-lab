@@ -22,12 +22,10 @@ class TestAttention():
         cus_init_proj_bias=custom_model.attention.qkv_proj.bias
     
         assert torch.allclose(src_init_proj_weights.T,cus_init_proj_weights)
-        assert torch.allclose(src_init_proj_bias.T,cus_init_proj_bias)
-    
+        assert torch.allclose(src_init_proj_bias,cus_init_proj_bias)
         
     def test_fused_qkv_output(self,
     custom_model,
-    reference_model,
     reference_input_embeddings,
     reference_block
     ):
@@ -59,10 +57,9 @@ class TestAttention():
         reference_block):
         batch_size,seq_length,_=reference_input_embeddings.shape
         
-        normalized_input = reference_block.ln_1(reference_input_embeddings)
-        
         
         with torch.inference_mode():
+            normalized_input = reference_block.ln_1(reference_input_embeddings)
             mQ,mK,mV=custom_model.attention._qkv_projection_helper(embeddings=normalized_input,batch_size=batch_size,seq_length=seq_length)
             mQ=mQ.movedim(1,2)
             mK=mK.movedim(1,2)
@@ -80,13 +77,37 @@ class TestAttention():
             assert mV.shape==value_states.shape
           
 
-            assert torch.allclose(query_states,mQ,rtol=1e-5,atol=1e-6)
-            assert torch.allclose(key_states,mK,rtol=1e-5,atol=1e-6)        
-            assert torch.allclose(value_states,mV,rtol=1e-5,atol=1e-6)   
-            
+            torch.testing.assert_close(mQ, query_states, rtol=1e-5, atol=1e-6)
+            torch.testing.assert_close(mK, key_states, rtol=1e-5, atol=1e-6)
+            torch.testing.assert_close(mV, value_states, rtol=1e-5, atol=1e-6)
 
         
-    
-    def test_attention(self):
-        pass
-    
+    def test_attention(
+        self,
+        reference_block,
+        reference_input_embeddings,
+        custom_model,
+    ):
+        with torch.inference_mode():
+            normalized_input = reference_block.ln_1(
+                reference_input_embeddings
+            )
+
+            expected_attention = reference_block.attn(
+                normalized_input
+            )[0]
+
+            actual_attention = custom_model.attention(
+                normalized_input
+            )
+
+        assert actual_attention.shape == expected_attention.shape
+
+        torch.testing.assert_close(
+            actual_attention,
+            expected_attention,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+        
+

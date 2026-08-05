@@ -118,6 +118,8 @@ Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
 
 ...
 
+#We should not forget to transpose our parameters since I'm using nn.Linear while the HuggingFace's implementation uses Conv1D
+
 # To put in the article:
 
 ```python

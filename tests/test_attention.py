@@ -86,7 +86,7 @@ class TestAttention():
         self,
         reference_block,
         reference_input_embeddings,
-        custom_model,
+        custom_attention
     ):
         with torch.inference_mode():
             normalized_input = reference_block.ln_1(
@@ -97,9 +97,7 @@ class TestAttention():
                 normalized_input
             )[0]
 
-            actual_attention = custom_model.attention(
-                normalized_input
-            )
+            actual_attention =custom_attention
 
         assert actual_attention.shape == expected_attention.shape
 

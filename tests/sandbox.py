@@ -17,7 +17,12 @@ else:
 model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 model=model.to(DEVICE)
 
+print(model)
 
+print(
+    f'{type(model.get_submodule("transformer.h.0.mlp.act"))} '
+    f'VS {type(model.transformer.h[0].mlp.act)}'
+)
         
 """ Retreiving embeddings of our text sequence"""
 with torch.no_grad():
@@ -27,14 +32,6 @@ with torch.no_grad():
     attention_module=model.transformer.h[0].attn #droping to the attention class level
     #query, key, value = attention_module.c_attn(source_input_embeddings).split(attention_module.split_size, dim=2)
     
-    query_states, key_states, value_states = attention_module.c_attn(source_input_embeddings).split(attention_module.split_size, dim=2)
-    
-    shape_kv = (*key_states.shape[:-1], -1, attention_module.head_dim)
-    key_states = key_states.view(shape_kv).transpose(1, 2)
-    value_states = value_states.view(shape_kv).transpose(1, 2)
-    shape_q = (*query_states.shape[:-1], -1, attention_module.head_dim)
-    query_states = query_states.view(shape_q).transpose(1, 2)
-    
-    print(f'Q:{query_states.shape}|K:{key_states.shape}| V:{value_states.shape}')
+
 
     

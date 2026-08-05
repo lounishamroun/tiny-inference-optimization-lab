@@ -8,6 +8,8 @@ from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
     
+torch.manual_seed(42)
+
 @pytest.fixture(scope="session")
 def device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")    
@@ -51,6 +53,7 @@ def reference_input_embeddings(reference_model,input_text,device):
 @pytest.fixture(scope="session")
 def reference_block(reference_model):
     reference_block = reference_model.transformer.h[0]
+    reference_block.eval()
     return reference_block
 
 @pytest.fixture(scope="session")

@@ -69,6 +69,16 @@ def custom_model(reference_input_embeddings,reference_param,device):
     custom_model.eval()
     return custom_model
     
+@pytest.fixture(scope="session")
+def custom_attention(reference_input_embeddings,custom_model,reference_block,device):
+    with torch.inference_mode():
+        
+        l1_norm_embeddings=reference_block.ln_1(
+                reference_input_embeddings
+            )
 
+        custom_attention=custom_model.attention(l1_norm_embeddings)
+        
+    return custom_attention
    
     

@@ -1,8 +1,6 @@
 import pytest
 import torch
-from src.tiny_transformer import data_loader,embeddings_map
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
-from src.tiny_transformer.block import gpt2_parameter_load_helper,CausalSelfAttention
+
 
 
 class TestMlp():
@@ -31,7 +29,7 @@ class TestMlp():
                         atol=0,
                         )
         
-            torch.testing.assert_close(ref_up_proj_bias,cus_up_proj_bias,rtol=0,atol=0)
+            torch.testing.assert_close(cus_up_proj_bias,ref_up_proj_bias,rtol=0,atol=0)
             
             torch.testing.assert_close(
                         cus_down_proj_wgt,
@@ -39,8 +37,9 @@ class TestMlp():
                         rtol=0,
                         atol=0)
             
-            torch.testing.assert_close(ref_down_proj_bias,cus_down_proj_bias,rtol=0,atol=0)
+            torch.testing.assert_close(cus_down_proj_bias,ref_down_proj_bias,rtol=0,atol=0)
             
+    @torch.inference_mode()
     def test_activation(self,custom_model,reference_block,reference_input_embeddings):
         upscaled_embeddings=reference_block.mlp.c_fc(reference_input_embeddings)
         
@@ -48,12 +47,12 @@ class TestMlp():
         custom_activation=custom_model.mlp.activation(upscaled_embeddings)
         
         torch.testing.assert_close(
-                                ref_activation,
                                 custom_activation,
+                                ref_activation,
                                 rtol=1e-5,
                                 atol=1e-6)
-            
-    
+        
+    @torch.inference_mode()
     def test_projection(self,custom_model,reference_block,reference_input_embeddings):
         
         #Maximum absolute difference: approximately 3e-6 in float32
@@ -64,10 +63,10 @@ class TestMlp():
     
         
         reference_proj = reference_block.mlp.c_proj(reference_fc)
-        custom_proj = custom_model.mlp.down_proj(reference_fc) #error here
+        custom_proj = custom_model.mlp.down_proj(reference_fc) 
         
-        torch.testing.assert_close(reference_fc,custom_fc,rtol=1e-5,atol=1e-5)
-        torch.testing.assert_close(reference_proj,custom_proj,rtol=1e-5,atol=1e-5)
+        torch.testing.assert_close(custom_fc,reference_fc,rtol=1e-5,atol=1e-5)
+        torch.testing.assert_close(custom_proj,reference_proj,rtol=1e-5,atol=1e-5)
 
     
     @torch.inference_mode()
@@ -77,8 +76,7 @@ class TestMlp():
         reference_input_embeddings,
         custom_model,
     ):
-     
-
+    
         actual_output=custom_model.mlp(reference_input_embeddings)
         expected_output=reference_block.mlp(reference_input_embeddings) 
         torch.testing.assert_close(expected_output,actual_output,rtol=1e-5,atol=1e-5)

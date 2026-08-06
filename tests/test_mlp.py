@@ -32,6 +32,22 @@ class TestMlp():
             
             torch.testing.assert_close(ref_down_proj_wgt.T,cus_down_proj_wgt,rtol=1e-5,atol=1e-6)
             torch.testing.assert_close(ref_down_proj_bias,cus_down_proj_bias,rtol=1e-5,atol=1e-6)
+            
+    
+    def test_projection(self,custom_model,reference_block,reference_input_embeddings):
+        
+        #Maximum absolute difference: approximately 3e-6 in float32
+        #Cause: GPT-2 Conv1D uses addmm, while nn.Linear dispatches through F.linear
+
+        reference_fc = reference_block.mlp.c_fc(reference_input_embeddings)
+        custom_fc = custom_model.mlp.up_proj(reference_input_embeddings)
+    
+        
+        reference_proj = reference_block.mlp.c_proj(reference_fc)
+        custom_proj = custom_model.mlp.down_proj(reference_fc) #error here
+        
+        torch.testing.assert_close(reference_fc,custom_fc,rtol=1e-5,atol=1e-5)
+        torch.testing.assert_close(reference_proj,custom_proj,rtol=1e-5,atol=1e-5)
 
     
     @torch.inference_mode()
@@ -41,18 +57,12 @@ class TestMlp():
         reference_input_embeddings,
         custom_model,
     ):
-        
+     
+
         actual_output=custom_model.mlp(reference_input_embeddings)
-        
         expected_output=reference_block.mlp(reference_input_embeddings) 
-        
-        
-        print(expected_output.dtype, actual_output.dtype)
-        print(expected_output.device, actual_output.device)
-        
-        assert_close_out=torch.testing.assert_close(expected_output,actual_output,rtol=1e-5,atol=1e-6)
-        #close_all_out=torch.allclose(expected_output,actual_output,rtol=1e-5,atol=1e-6)
-        
-        print(f' assert close vs all out : {assert_close_out}')
+        torch.testing.assert_close(expected_output,actual_output,rtol=1e-5,atol=1e-5)
+         
+
 
     

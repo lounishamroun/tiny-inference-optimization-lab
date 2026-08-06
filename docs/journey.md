@@ -118,7 +118,7 @@ Name: transformer.h.0.ln_1.bias of shape :  torch.Size([768])
 
 ...
 
-#We should not forget to transpose our parameters since I'm using nn.Linear while the HuggingFace's implementation uses Conv1D
+We should not forget to transpose our parameters since I'm using nn.Linear while the HuggingFace's implementation uses Conv1D
 
 # To put in the article:
 
@@ -133,3 +133,17 @@ Link for param in the conv layer: https://huggingface.co/transformers/v3.1.0/_mo
 
 
 I made the mistake of writing all the tests at the end, I should've started earlier which would have saved me a lot of time spent debugging. 
+
+## Test error in MLP down projection
+
+>       torch.testing.assert_close(reference_proj,custom_proj,rtol=1e-5,atol=1e-6)
+E       AssertionError: Tensor-likes are not close!
+E       
+E       Mismatched elements: 4 / 3840 (0.1%)
+E       Greatest absolute difference: 2.2798776626586914e-06 at index (0, 0, 26) (up to 1e-06 allowed)
+E       Greatest relative difference: 0.0020338506437838078 at index (0, 1, 209) (up to 1e-05 allowed)
+
+We have an unexplainable error, passing the reference expended output to our custom model leads to a 0.1% difference in values.
+
+
+I'm stuck, there's issue at the down projection level, which doesn't make sense to me.

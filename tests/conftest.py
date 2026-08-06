@@ -8,7 +8,6 @@ from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
     
-torch.manual_seed(42)
 
 @pytest.fixture(scope="session")
 def device():

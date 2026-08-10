@@ -1,6 +1,7 @@
 import pytest
 
-from src.tiny_transformer import data_loader,embeddings_map,block,get_model_param
+from src.tiny_transformer import data_loader,embeddings_map,block,get_model_param,config
+from src.tiny_transformer.config  import GPT2Config 
 import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
@@ -60,14 +61,18 @@ def get_batch_seq_dim(reference_input_embeddings):
     batch_size,seq_length,_=reference_input_embeddings.shape
     return [batch_size,seq_length]
 
+
+
+GPT2Config
 @pytest.fixture(scope="session")
-def custom_model(reference_input_embeddings,reference_param,device):
-    custom_model=block.TinyDecoderBlock(
-                         d_expansion=3072,
-                         d_model=reference_input_embeddings.shape[-1],
-                         n_heads=12,
-                         gpt2_params=reference_param,
-                         ).to(device)
+def conf():
+    conf=GPT2Config()
+    return conf
+
+
+@pytest.fixture(scope="session")
+def custom_model(device,conf):
+    custom_model=block.TinyDecoderBlock(conf,layer_id=0).to(device)
     custom_model.eval()
     return custom_model
     

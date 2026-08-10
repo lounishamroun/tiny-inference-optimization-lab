@@ -13,7 +13,7 @@ Decoder (GPT STYLE)
         dropout probability = 0.1
 """
 
-from . import data_loader,embeddings_map,get_model_param
+from . import data_loader,embeddings_map,get_model_param,config
 from .get_model_param import gpt2_parameter_load_helper
 import torch
 from torch import nn
@@ -23,11 +23,15 @@ import math
 import warnings
 
 
+N_LAYERS = 4
+
 if torch.cuda.is_available():
     DEVICE="cuda"
 else:
     DEVICE="cpu"
         
+
+#TO DO : causal mask test
 
 class CausalSelfAttention(nn.Module):
     def __init__(self,d_model,n_heads,head_dim,qkv_proj_wgt,qkv_proj_bias,qkv_final_proj_wgt,qkv_final_proj_bias):
@@ -229,17 +233,20 @@ Output : Embedding matrix of shape => [batch_size,seq_length,d_model]
 
 class TinyDecoderBlock(nn.Module):
 
-    def __init__(self,d_expansion,d_model,n_heads,gpt2_params):
+    def __init__(self,config,layer_id):
         super().__init__()
         
         """Retreiving parameters from GPT-2 model"""
-        self.gpt2_params=gpt2_params
-        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu=self.gpt2_params
+        self.config=config
+        self.layer_id=layer_id
         
-        self.d_model=d_model
-        self.head_dim=d_model//n_heads
-        self.n_heads=n_heads
-        self.d_expansion=d_expansion
+        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu=self.config.gpt2_params
+        
+        self.d_model=self.config.d_model
+        self.n_heads=self.config.n_heads
+        self.head_dim=self.config.d_model//self.n_heads
+        self.d_expansion=self.config.d_expansion
+        
         self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
         
         with torch.no_grad():
@@ -281,36 +288,18 @@ class TinyDecoderBlock(nn.Module):
         return output
         
 
-if __name__=="__main__":
+class TinyModel(nn.Module):
+    def __init__(self,config):
+        super().__init__
+        self.h = nn.ModuleList([TinyDecoderBlock(config=config,layer_id=i) for i in range(config.num_layers)])
 
-    """ 
-    Retreiving embeddings for an input text sequence
-    Output shape => [B,T,d_model] 
-    """
-    INPUT_TEXT = data_loader.return_text("data/text.txt")
-    
-    """ Retreiving the original GPT-2 embedding lookup table"""
-    model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-    
-    """ Retreiving embeddings of our text sequence"""
-    tokenizer=embeddings_map.TokenToEmbedding(INPUT_TEXT,model=model,device=DEVICE)
-    embeddings=tokenizer.map_embeddings().detach()
-    gpt_2_params=get_model_param.gpt2_parameter_load_helper(model)
-    
-    block=TinyDecoderBlock(
-                     d_expansion=3072,
-                     d_model=embeddings.shape[-1],
-                     n_heads=12,
-                     gpt2_params=gpt_2_params,
-                     ).to(DEVICE)
-    
-    block_output=block(embeddings)
-    
+    def foward(self,hidden_state):
+        for layer in self.h:
+            hidden_state=layer(hidden_state)
+        return hidden_state
 
-
-    
  
-    
+
     
 
 

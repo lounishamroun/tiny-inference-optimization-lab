@@ -14,9 +14,8 @@ class GPT2Config:
         self.d_model= 768
         self.n_heads= 12
         self.num_layers= 4
-        self.layer_norm_epsilon=1e-6
+        self.layer_norm_epsilon=1e-5
         
-print(GPT2Config().gpt2_params)
 
 __all__ = ["GPT2Config"]
 

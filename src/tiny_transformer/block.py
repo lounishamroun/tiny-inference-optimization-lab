@@ -40,8 +40,7 @@ class CausalSelfAttention(nn.Module):
     
         """Injecting GPT-2 parameters into the QKV projection layer"""
         self.qkv_proj=nn.Linear(in_features=self.d_model,out_features=3*self.d_model)
-        print(f'QKV wgth: {qkv_proj_wgt.shape}')
-        print(f'QKV bias: {qkv_proj_bias.shape}')
+
         with torch.no_grad():
             self.qkv_proj.weight.copy_(qkv_proj_wgt.T) #keep the same identity
             self.qkv_proj.bias.copy_(qkv_proj_bias) 
@@ -238,7 +237,7 @@ class TinyDecoderBlock(nn.Module):
         self.config=config
         self.layer_id=layer_id
         
-        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu=self.config.gpt2_params
+        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu,_,_=self.config.gpt2_params
         
         self.d_model=self.config.d_model
         self.n_heads=self.config.n_heads

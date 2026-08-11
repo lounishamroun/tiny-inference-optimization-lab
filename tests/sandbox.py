@@ -1,5 +1,5 @@
 import src.tiny_transformer
-from src.tiny_transformer import data_loader,embeddings_map,get_model_param
+from src.tiny_transformer import data_loader,embeddings_map,get_model_param,config
 import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
@@ -13,6 +13,8 @@ if torch.cuda.is_available():
 else:
     DEVICE="cpu"
         
+
+print(dir(config.GPT2Config))
 
 model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 model=model.to(DEVICE)

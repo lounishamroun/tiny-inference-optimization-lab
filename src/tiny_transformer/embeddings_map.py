@@ -22,7 +22,7 @@ class TokenToEmbedding():
         self.model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
         self.model=self.model.to(self.device)
         
-    def map_embeddings(self):
+    def map_embeddings(self,include_positional=True):
         self.model.eval()
         batch_size, seq_length = self.token_ids.shape 
         token_embedding_module = self.model.wte
@@ -39,7 +39,11 @@ class TokenToEmbedding():
         d_model=tok_embeddings.shape[-1]
         
         #### Input Embedding ####
-        full_embeddings=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor 
+        if include_positional==True:
+            full_embeddings=tok_embeddings+pos_embeddings  #shape=([B,T, d_model]) | type:Torch.Tensor
+        else:
+            full_embeddings=tok_embeddings
+        
         assert full_embeddings.shape == torch.Size([batch_size, seq_length, d_model]), f'Shape is {batch_size, seq_length, d_model}'
         return full_embeddings
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class GPT2Config:
+class GPT2CustomConfig:
     def __init__(self):
         self.model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
         self.gpt2_params=gpt2_parameter_load_helper(self.model) 
@@ -17,5 +17,5 @@ class GPT2Config:
         self.layer_norm_epsilon=1e-5
         
 
-__all__ = ["GPT2Config"]
+__all__ = ["GPT2CustomConfig"]
 

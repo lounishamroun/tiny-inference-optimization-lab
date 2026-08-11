@@ -1,10 +1,10 @@
 import pytest
 
 from src.tiny_transformer import data_loader,embeddings_map,block,get_model_param,config
-from src.tiny_transformer.config  import GPT2Config 
+from src.tiny_transformer.config  import GPT2CustomConfig 
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM,GPT2Config,GPT2Model
 from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
@@ -56,6 +56,7 @@ def reference_block(reference_model):
     reference_block.eval()
     return reference_block
 
+
 @pytest.fixture(scope="session")
 def get_batch_seq_dim(reference_input_embeddings):
     batch_size,seq_length,_=reference_input_embeddings.shape
@@ -63,29 +64,32 @@ def get_batch_seq_dim(reference_input_embeddings):
 
 
 
-GPT2Config
+GPT2CustomConfig
 @pytest.fixture(scope="session")
 def conf():
-    conf=GPT2Config()
+    conf=GPT2CustomConfig()
     return conf
 
 
 @pytest.fixture(scope="session")
-def custom_model(device,conf):
-    custom_model=block.TinyDecoderBlock(conf,layer_id=0).to(device)
-    custom_model.eval()
-    return custom_model
+def custom_block(device,conf):
+    custom_block=block.TinyDecoderBlock(conf,layer_id=0).to(device)
+    custom_block.eval()
+    return custom_block
     
 @pytest.fixture(scope="session")
-def custom_attention(reference_input_embeddings,custom_model,reference_block,device):
+def custom_attention(reference_input_embeddings,custom_block,reference_block,device):
     with torch.inference_mode():
         
         l1_norm_embeddings=reference_block.ln_1(
                 reference_input_embeddings
             )
 
-        custom_attention=custom_model.attention(l1_norm_embeddings)
+        custom_attention=custom_block.attention(l1_norm_embeddings)
         
     return custom_attention
-   
+
+
+
+
     

@@ -23,8 +23,6 @@ import math
 import warnings
 
 
-N_LAYERS = 4
-
 if torch.cuda.is_available():
     DEVICE="cuda"
 else:
@@ -247,13 +245,13 @@ class TinyDecoderBlock(nn.Module):
         self.head_dim=self.config.d_model//self.n_heads
         self.d_expansion=self.config.d_expansion
         
-        self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model)
+        self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model,eps=self.config.layer_norm_epsilon)
         
         with torch.no_grad():
             self.layer_norm_1.weight.copy_(l_norm_wgt)
             self.layer_norm_1.bias.copy_(l_norm_bias)
         
-        self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model)
+        self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model,eps=self.config.layer_norm_epsilon)
         with torch.no_grad():
             self.layer_norm_2.weight.copy_(l_norm2_wgt)
             self.layer_norm_2.bias.copy_(l_norm2_bias)
@@ -278,6 +276,7 @@ class TinyDecoderBlock(nn.Module):
         
     def forward(self,embeddings):
         """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
+        
         pre_attention_residual=embeddings
         embeddings=self.layer_norm_1(embeddings)
         attention=self.attention(embeddings=embeddings)
@@ -286,6 +285,7 @@ class TinyDecoderBlock(nn.Module):
         post_mlp=self.mlp(ln2_output)
         output=pre_mlp_residual+post_mlp
         return output
+        
         
 
 class TinyModel(nn.Module):

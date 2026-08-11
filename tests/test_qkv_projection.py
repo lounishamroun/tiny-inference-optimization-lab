@@ -13,18 +13,18 @@ else:
 
 class TestAttention():
     
-    def test_qkv_proj_params(self,custom_model,reference_model):
+    def test_qkv_proj_params(self,custom_block,reference_model):
         src_init_proj_weights=reference_model.transformer.h[0].attn.c_attn.weight
         src_init_proj_bias=reference_model.transformer.h[0].attn.c_attn.bias
 
-        cus_init_proj_weights=custom_model.attention.qkv_proj.weight
-        cus_init_proj_bias=custom_model.attention.qkv_proj.bias
+        cus_init_proj_weights=custom_block.attention.qkv_proj.weight
+        cus_init_proj_bias=custom_block.attention.qkv_proj.bias
     
         assert torch.allclose(src_init_proj_weights.T,cus_init_proj_weights)
         assert torch.allclose(src_init_proj_bias,cus_init_proj_bias)
         
     def test_fused_qkv_output(self,
-    custom_model,
+    custom_block,
     reference_input_embeddings,
     reference_block
     ):
@@ -39,7 +39,7 @@ class TestAttention():
                 normalized_input
             )
 
-            actual_qkv = custom_model.attention.qkv_proj(
+            actual_qkv = custom_block.attention.qkv_proj(
                 normalized_input
             )
         assert expected_qkv.shape == actual_qkv.shape #torch.Size([batch_size, seq_length, d_model*3])
@@ -51,7 +51,7 @@ class TestAttention():
             atol=1e-6,
         )
             
-    def test_split_head_parity(self,custom_model,
+    def test_split_head_parity(self,custom_block,
         reference_input_embeddings,
         reference_block):
         batch_size,seq_length,_=reference_input_embeddings.shape
@@ -59,7 +59,7 @@ class TestAttention():
         
         with torch.inference_mode():
             normalized_input = reference_block.ln_1(reference_input_embeddings)
-            mQ,mK,mV=custom_model.attention._qkv_projection_helper(embeddings=normalized_input,batch_size=batch_size,seq_length=seq_length)
+            mQ,mK,mV=custom_block.attention._qkv_projection_helper(embeddings=normalized_input,batch_size=batch_size,seq_length=seq_length)
             mQ=mQ.movedim(1,2)
             mK=mK.movedim(1,2)
             mV=mV.movedim(1,2)
@@ -85,7 +85,7 @@ class TestAttention():
         self,
         reference_block,
         reference_input_embeddings,
-        custom_model,
+        custom_block,
     ):
         with torch.inference_mode():
             normalized_input = reference_block.ln_1(
@@ -96,7 +96,7 @@ class TestAttention():
                 normalized_input
             )[0]
 
-            actual_attention = custom_model.attention(
+            actual_attention = custom_block.attention(
                 normalized_input
             )
 

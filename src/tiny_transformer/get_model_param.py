@@ -26,5 +26,9 @@ def gpt2_parameter_load_helper(model):
     """Layer Norm 2"""
     l_norm2_wgt=model.get_parameter("transformer.h.0.ln_2.weight")
     l_norm2_bias=model.get_parameter("transformer.h.0.ln_2.bias")
+    
+    """Final Layer Norm"""
+    ln_f_wgt=model.get_parameter("transformer.ln_f.weight")
+    ln_f_bias=model.get_parameter("transformer.ln_f.bias") 
      
-    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu]
+    return [up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu,ln_f_wgt,ln_f_bias]

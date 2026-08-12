@@ -289,7 +289,7 @@ class TinyDecoderBlock(nn.Module):
 
 class TinyModel(nn.Module):
     def __init__(self,config):
-        super().__init__
+        super().__init__()
         self.h = nn.ModuleList([TinyDecoderBlock(config=config,layer_id=i) for i in range(config.num_layers)])
 
     def foward(self,hidden_state):

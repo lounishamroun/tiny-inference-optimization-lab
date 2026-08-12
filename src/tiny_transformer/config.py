@@ -15,6 +15,7 @@ class GPT2CustomConfig:
         self.n_heads= 12
         self.num_layers= 4
         self.layer_norm_epsilon=1e-5
+        self.initializer_range = 0.02
         
 
 __all__ = ["GPT2CustomConfig"]

@@ -235,7 +235,7 @@ class TinyDecoderBlock(nn.Module):
         
         """Retreiving parameters from GPT-2 model"""
         self.config=config
-        self.layer_id=layer_id
+        self.layer_id=None
         
         up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu,_,_=self.config.gpt2_params
         

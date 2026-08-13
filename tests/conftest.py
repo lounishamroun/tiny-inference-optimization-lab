@@ -89,7 +89,27 @@ def custom_attention(reference_input_embeddings,custom_block,reference_block,dev
         
     return custom_attention
 
+@pytest.fixture(scope="session")
+def custom_attention():
+    parameter_mapping = {
+        "ln_1.weight": ("layer_norm_1.weight", False),
+        "ln_1.bias": ("layer_norm_1.bias", False),
 
+        "attn.c_attn.weight": ("attention.qkv_proj.weight", True),
+        "attn.c_attn.bias": ("attention.qkv_proj.bias", False),
 
+        "attn.c_proj.weight": ("attention.final_projection.weight", True),
+        "attn.c_proj.bias": ("attention.final_projection.bias", False),
+
+        "ln_2.weight": ("layer_norm_2.weight", False),
+        "ln_2.bias": ("layer_norm_2.bias", False),
+
+        "mlp.c_fc.weight": ("mlp.up_proj.weight", True),
+        "mlp.c_fc.bias": ("mlp.up_proj.bias", False),
+
+        "mlp.c_proj.weight": ("mlp.down_proj.weight", True),
+        "mlp.c_proj.bias": ("mlp.down_proj.bias", False),
+    }
+    return parameter_mapping
 
     

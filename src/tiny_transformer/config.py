@@ -1,22 +1,22 @@
 from typing import Any
 
-from transformers import AutoModelForCausalLM
-from .get_model_param import gpt2_parameter_load_helper
 from dataclasses import dataclass
+from .activations import NewGELUActivation
 
 
 @dataclass
 class GPT2CustomConfig:
     def __init__(self):
-        self.model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-        self.gpt2_params=gpt2_parameter_load_helper(self.model) 
         self.d_expansion=3072
         self.d_model= 768
         self.n_heads= 12
-        self.num_layers= 4
-        self.layer_norm_epsilon=1e-5
+        self.num_layers= 12
+        self.vocab_size = 50257
+        self.layer_norm_epsilon = 1e-5
         self.initializer_range = 0.02
+        self.activation=NewGELUActivation()
+        self.context_length = 1024
         
 
-__all__ = ["GPT2CustomConfig"]
+
 

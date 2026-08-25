@@ -1,7 +1,7 @@
 from . import data_loader
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer
 from boilerplates.similarity_test import compare_tensor_pair
 import math
 import warnings
@@ -17,16 +17,13 @@ class TokenToEmbedding():
             )
         token_ids=self.tokenizer(INPUT_TEXT, return_tensors="pt")['input_ids'] #=> Converts text into token IDs.
         self.token_ids=token_ids.to(self.device)
-        
-        """ Token ids to GPT-2 compatible embedding"""
-        self.model=AutoModel.from_pretrained("openai-community/gpt2",output_hidden_states=True)
         self.model=self.model.to(self.device)
         
     def map_embeddings(self,include_positional=True):
         self.model.eval()
         batch_size, seq_length = self.token_ids.shape 
-        token_embedding_module = self.model.wte
-        position_embedding_module = self.model.wpe
+        token_embedding_module = self.model.transformer.wte
+        position_embedding_module = self.model.transformer.wpe
         
         #### Token Embeddings ####
         tok_embeddings=token_embedding_module(self.token_ids)  # Generates word embeddings for our sequence

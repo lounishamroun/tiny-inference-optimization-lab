@@ -1,7 +1,7 @@
 """ Glossary 
 Decoder (GPT STYLE)
     Shapes:
-        n_layers = 4 : Number of transformer blocks.
+        n_layers = 12 : Number of transformer blocks.
         d_model = 768 : Correponds to the length of our embeddings.
         n_heads = 12
         head_dim = 64
@@ -13,43 +13,23 @@ Decoder (GPT STYLE)
         dropout probability = 0.1
 """
 
-from . import data_loader,embeddings_map,get_model_param,config
-from .get_model_param import gpt2_parameter_load_helper
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
-from boilerplates.similarity_test import compare_tensor_pair
 import math
-import warnings
 
-
-if torch.cuda.is_available():
-    DEVICE="cuda"
-else:
-    DEVICE="cpu"
-        
-
-#TO DO : causal mask test
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self,d_model,n_heads,head_dim,qkv_proj_wgt,qkv_proj_bias,qkv_final_proj_wgt,qkv_final_proj_bias):
+    def __init__(self,d_model,n_heads,head_dim):
         super().__init__()
         self.n_heads=n_heads
         self.head_dim=head_dim
         self.d_model=d_model
     
-        """Injecting GPT-2 parameters into the QKV projection layer"""
+     
         self.qkv_proj=nn.Linear(in_features=self.d_model,out_features=3*self.d_model)
 
-        with torch.no_grad():
-            self.qkv_proj.weight.copy_(qkv_proj_wgt.T) #keep the same identity
-            self.qkv_proj.bias.copy_(qkv_proj_bias) 
-        
         """Final QKV projection"""
         self.final_projection=nn.Linear(in_features=self.d_model,out_features=self.d_model)
-        with torch.no_grad():
-            self.final_projection.weight.copy_(qkv_final_proj_wgt.T)
-            self.final_projection.bias.copy_(qkv_final_proj_bias)
         
         
     def _qkv_projection_helper(self,embeddings,batch_size,seq_length):
@@ -128,22 +108,6 @@ class CausalSelfAttention(nn.Module):
 
         assert softmax_scores.shape == torch.Size([batch_size, self.n_heads, seq_length, seq_length])
 
-        # Check each attention row sums to 1.
-        row_sums = softmax_scores.sum(dim=-1)
-        ones = torch.ones_like(row_sums)
-        assert torch.allclose(row_sums, ones, atol=1e-6), ( #TO DO : Move into test for benchmarking
-            f"Attention rows do not sum to 1. "
-            f"max diff = {(row_sums - ones).abs().max().item()}"
-        )
-
-        # Check future positions have zero probability after softmax.
-        future_weights = softmax_scores.masked_select(mask)
-        assert torch.allclose(
-            future_weights,
-            torch.zeros_like(future_weights),
-            atol=1e-6,
-        ), f"Future tokens are receiving attention. max={future_weights.max().item()}"
-
         # Attention output: [B, H, T, T] @ [B, H, T, Dh] -> [B, H, T, Dh]
         attention_matrix = softmax_scores @ mh_V
 
@@ -156,10 +120,6 @@ class CausalSelfAttention(nn.Module):
         attention_matrix=self.final_projection(attention_matrix)
 
         assert attention_matrix.shape == torch.Size([batch_size, seq_length, self.d_model])
-
-        # Sanity check for future optimization.
-        if not attention_matrix.is_contiguous():
-            warnings.warn("attention_matrix is not contiguous", UserWarning)
 
         return attention_matrix
         
@@ -179,30 +139,17 @@ class CausalSelfAttention(nn.Module):
 Input : Merged heads of shape => [B, T, d_model]
 """
 class FeedForward(nn.Module):
-    def __init__(self,d_model,d_expansion,gpt2_up_proj_wgt,gpt2_up_proj_bias,gpt2_down_proj_wgt,gpt2_down_proj_bias,new_gelu):
+    def __init__(self,d_model,d_expansion,new_gelu):
         super().__init__()
         self.d_expansion=d_expansion
         self.up_proj=nn.Linear(in_features=d_model,out_features=self.d_expansion)
 
-
-        """Setting GPT-2 parameters to our up_proj linear layer"""
-        with torch.no_grad():
-            self.up_proj.weight.copy_(gpt2_up_proj_wgt.T)
-            self.up_proj.bias.copy_(gpt2_up_proj_bias)
         
         """Activation"""
         self.activation=new_gelu
         
         """Setting parameters """
         self.down_proj=nn.Linear(in_features=d_expansion,out_features=d_model)
-
-        
-        """Setting GPT-2 parameters to our down_proj linear layer"""
-        with torch.no_grad():
-            self.down_proj.weight.copy_(gpt2_down_proj_wgt.T)
-            self.down_proj.bias.copy_(gpt2_down_proj_bias)
-        
-        
     
     def forward(self,x):
         mlp_input=x
@@ -230,48 +177,31 @@ Output : Embedding matrix of shape => [batch_size,seq_length,d_model]
 
 class TinyDecoderBlock(nn.Module):
 
-    def __init__(self,config,layer_id):
+    def __init__(self,config,layer_idx=0):
         super().__init__()
         
-        """Retreiving parameters from GPT-2 model"""
+       
         self.config=config
-        self.layer_id=None
-        
-        up_proj_wgt,up_proj_bias,down_proj_wgt,down_proj_bias,qkv_proj_wgt,qkv_proj_bias,l_norm_wgt,l_norm_bias,l_norm2_wgt,l_norm2_bias,qkv_final_proj_wgt,qkv_final_proj_bias,new_gelu,_,_=self.config.gpt2_params
-        
+        self.layer_id=layer_idx        
         self.d_model=self.config.d_model
         self.n_heads=self.config.n_heads
         self.head_dim=self.config.d_model//self.n_heads
         self.d_expansion=self.config.d_expansion
         
         self.layer_norm_1=nn.LayerNorm(normalized_shape=self.d_model,eps=self.config.layer_norm_epsilon)
-        
-        with torch.no_grad():
-            self.layer_norm_1.weight.copy_(l_norm_wgt)
-            self.layer_norm_1.bias.copy_(l_norm_bias)
+    
         
         self.layer_norm_2=nn.LayerNorm(normalized_shape=self.d_model,eps=self.config.layer_norm_epsilon)
-        with torch.no_grad():
-            self.layer_norm_2.weight.copy_(l_norm2_wgt)
-            self.layer_norm_2.bias.copy_(l_norm2_bias)
         
         self.attention=CausalSelfAttention(d_model=self.d_model,
                                            n_heads=self.n_heads,
                                            head_dim=self.head_dim,
-                                           qkv_proj_wgt=qkv_proj_wgt,
-                                           qkv_proj_bias=qkv_proj_bias,
-                                           qkv_final_proj_wgt=qkv_final_proj_wgt,
-                                           qkv_final_proj_bias=qkv_final_proj_bias,
                                            )
         
         self.mlp=FeedForward(d_model=self.d_model,
-                             d_expansion=self.d_expansion,
-                             gpt2_up_proj_wgt=up_proj_wgt,
-                             gpt2_up_proj_bias=up_proj_bias,
-                             gpt2_down_proj_wgt=down_proj_wgt,
-                             gpt2_down_proj_bias=down_proj_bias,
-                             new_gelu=new_gelu
-                             )        
+                            d_expansion=self.d_expansion,
+                            new_gelu=config.activation,
+                            )        
         
     def forward(self,embeddings):
         """Computing Attention | Contract : [B,T,d_model] => Instance => [B,T,d_model] """
@@ -288,14 +218,68 @@ class TinyDecoderBlock(nn.Module):
         
 
 class TinyModel(nn.Module):
-    def __init__(self,config):
+    def __init__(self, config):
         super().__init__()
-        self.h = nn.ModuleList([TinyDecoderBlock(config=config,layer_id=i) for i in range(config.num_layers)])
 
-    def foward(self,hidden_state):
+        self.config = config
+
+        # Embeddings
+        self.wte = nn.Embedding(
+            config.vocab_size,
+            config.d_model,
+        )
+
+        self.wpe = nn.Embedding(
+            config.context_length,
+            config.d_model,
+        )
+
+        # Transformer stack
+        self.h = nn.ModuleList([
+            TinyDecoderBlock(
+                config=config,
+                layer_idx=i,
+            )
+            for i in range(config.num_layers)
+        ])
+
+        # Final LayerNorm
+        self.final_ln = nn.LayerNorm(
+            normalized_shape=config.d_model,
+            eps=config.layer_norm_epsilon,
+        )
+
+        # GPT-2 ties the LM head to the token embedding matrix.
+        self.lm_head = nn.Linear(
+            config.d_model,
+            config.vocab_size,
+            bias=False,
+        )
+
+        self.lm_head.weight = self.wte.weight
+
+    def forward(self, input_ids):
+        batch_size, seq_length = input_ids.shape
+
+        position_ids = torch.arange(
+            seq_length,
+            device=input_ids.device,
+        )
+
+        token_embeddings = self.wte(input_ids)
+        position_embeddings = self.wpe(position_ids)
+
+        hidden_states = token_embeddings + position_embeddings
+
         for layer in self.h:
-            hidden_state=layer(hidden_state)
-        return hidden_state
+            hidden_states = layer(hidden_states)
+
+        hidden_states = self.final_ln(hidden_states)
+
+        logits = self.lm_head(hidden_states)
+
+        return logits
+
 
  
 

@@ -2,7 +2,7 @@ import pytest
 import torch
 from src.tiny_transformer import data_loader,embeddings_map
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
-from src.tiny_transformer.block import gpt2_parameter_load_helper,CausalSelfAttention
+import src.tiny_transformer.block
 
 
 if torch.cuda.is_available():

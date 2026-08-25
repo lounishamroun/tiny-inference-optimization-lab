@@ -148,4 +148,26 @@ We have an unexplainable error, passing the reference expended output to our cus
 
 I'm stuck, there's issue at the down projection level, which doesn't make sense to me.
 
-Deliberatly break a test component to check if the test actually works, I did a mistake when building one of the test by putting a `@torch.inference_mode()` decorator.
+## Test mistakes
+
+First thing, build test before or at the same time you're building, it will prevent you wasting time, I made the error of waiting until the end to build the test which made me realized that I did a lot of implementation mistakes, because it's not because the shapes are correct that the content of the tensors also are.
+
+Deliberatly break a test component to check if the test actually works, I did a mistake when building one of the test by putting a `@torch.inference_mode()` decorator on top of a class which prevented the test to run, hence I thought that my block was working correctly while it was silently failing. 
+
+## Param mistakes
+
+Lesson:: Storage convention can be different while shapes remain the same : like Conv(1D) and nn.Linear(), they could have the same input/output dimension while being stored in a different way (in memory). Hence it's not enough to just compare shapes
+
+The copy_ thing, where this is the only way to copy while keeping the identity of the paramter (in place memory storing since other component of a module could call the parameters later, if we just replace them in place we'll lose reference/hidden links).
+
+
+
+The fact I put gpu intensive assertion in the model as a mistake :
+
+# Check each attention row sums to 1.
+        row_sums = softmax_scores.sum(dim=-1)
+        ones = torch.ones_like(row_sums)
+        assert torch.allclose(row_sums, ones, atol=1e-6), ( #TO DO : Move into test for benchmarking
+            f"Attention rows do not sum to 1. "
+            f"max diff = {(row_sums - ones).abs().max().item()}"
+        )

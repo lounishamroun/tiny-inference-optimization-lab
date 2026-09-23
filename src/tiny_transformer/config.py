@@ -1,7 +1,7 @@
 from typing import Any
 
 from dataclasses import dataclass
-from .activations import NewGELUActivation
+from tiny_transformer.activations import NewGELUActivation
 
 
 @dataclass
